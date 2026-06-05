@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QA Test Case Generator</title>
+  <!-- Tailwind CSS через CDN для аккуратного UI -->
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen p-6 flex flex-col items-center">
+  <div class="max-w-2xl w-full bg-white rounded-xl shadow p-6 space-y-6">
+    <h1 class="text-2xl font-bold text-gray-800">Генератор тест-кейсов</h1>
+
+    <!-- 1. Конструктор шаблона -->
+    <section>
+      <h2 class="text-lg font-semibold mb-2">Шаблон тест-кейса</h2>
+      <div id="fields-container" class="flex flex-wrap gap-2 mb-3">
+        <!-- Динамически заполняется полями -->
+      </div>
+      <div class="flex gap-2">
+        <input
+          type="text"
+          id="new-field-name"
+          placeholder="Название нового поля"
+          class="border border-gray-300 rounded px-3 py-1 flex-1"
+        />
+        <button
+          id="add-field-btn"
+          class="bg-indigo-500 text-white px-4 py-1 rounded hover:bg-indigo-600 transition"
+        >
+          + Добавить поле
+        </button>
+      </div>
+      <p class="text-xs text-gray-400 mt-1">Вы можете добавлять/удалять любые атрибуты</p>
+    </section>
+
+    <!-- 2. Панель ввода задачи -->
+    <section>
+      <h2 class="text-lg font-semibold mb-2">Описание задачи</h2>
+      <textarea
+        id="task-text"
+        rows="6"
+        placeholder="Вставьте описание фичи или баг-репорт..."
+        class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+      ></textarea>
+    </section>
+
+    <!-- 3. Кнопка генерации -->
+    <button
+      id="generate-btn"
+      class="w-full bg-green-600 text-white font-medium py-2 rounded hover:bg-green-700 transition"
+    >
+      Сгенерировать тест-кейсы
+    </button>
+    <!-- Индикатор загрузки -->
+    <p id="loading-msg" class="hidden text-center text-gray-500 italic">Генерация...</p>
+
+    <!-- 4. Область результата -->
+    <section>
+      <h2 class="text-lg font-semibold mb-2">Результат</h2>
+      <div id="result-container" class="bg-gray-100 rounded p-3 max-h-96 overflow-y-auto">
+        <p class="text-gray-400">Здесь появятся сгенерированные тест-кейсы</p>
+      </div>
+      <button
+        id="copy-btn"
+        class="mt-2 bg-gray-200 text-gray-700 px-4 py-1 rounded hover:bg-gray-300 transition hidden"
+      >
+        Скопировать всё в буфер
+      </button>
+    </section>
+  </div>
+
+  <!-- Логика приложения -->
+  <script>
+    (function() {
+      // ---------- Состояние ----------
+      const defaultFields = ["Название", "Предусловия", "Шаги", "Ожидаемый результат"];
+      let fields = [...defaultFields];
+
+      // DOM-элементы
+      const fieldsContainer = document.getElementById('fields-container');
+      const newFieldInput = document.getElementById('new-field-name');
+      const addFieldBtn = document.getElementById('add-field-btn');
+      const taskTextArea = document.getElementById('task-text');
+      const generateBtn = document.getElementById('generate-btn');
+      const loadingMsg = document.getElementById('loading-msg');
+      const resultContainer = document.getElementById('result-container');
+      const copyBtn = document.getElementById('copy-btn');
+
+      // ---------- Функции рендера полей ----------
+      function renderFields() {
+        fieldsContainer.innerHTML = '';
+        fields.forEach((field, index) => {
+          const chip = document.createElement('div');
+          chip.className = 'inline-flex items-center bg-indigo-100 text-indigo-800 rounded-full px-3 py-1 text-sm';
+
+          const nameSpan = document.createElement('span');
+          nameSpan.textContent = field;
+
+          const removeBtn = document.createElement('button');
+          removeBtn.innerHTML = '&times;';
+          removeBtn.className = 'ml-2 font-bold text-indigo-600 hover:text-red-600 focus:outline-none';
+          removeBtn.title = 'Удалить поле';
+          removeBtn.addEventListener('click', () => removeField(index));
+
+          chip.appendChild(nameSpan);
+          chip.appendChild(removeBtn);
+          fieldsContainer.appendChild(chip);
+        });
+      }
+
+      function addField() {
+        const newName = newFieldInput.value.trim();
+        if (!newName) {
+          alert('Введите название поля');
+          return;
+        }
+        if (fields.includes(newName)) {
+          alert('Такое поле уже есть');
+          return;
+        }
+        fields.push(newName);
+        newFieldInput.value = '';
+        renderFields();
+      }
+
+      function removeField(index) {
+        // Не даём удалить все поля – хотя бы одно должно остаться
+        if (fields.length <= 1) {
+          alert('Должно остаться хотя бы одно поле');
+          return;
+        }
+        fields.splice(index, 1);
+        renderFields();
+      }
+
+      // ---------- Отправка запроса ----------
+      async function generateTestCases() {
+        const taskText = taskTextArea.value.trim();
+        if (!taskText) {
+          alert('Введите описание задачи');
+          return;
+        }
+
+        // Показываем загрузку
+        loadingMsg.classList.remove('hidden');
+        generateBtn.disabled = true;
+        resultContainer.innerHTML = '';
+        copyBtn.classList.add('hidden');
+
+        try {
+          const response = await fetch('/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              task_text: taskText,
+              fields: fields
+            })
+          });
+
+          if (!response.ok) {
+            const errData = await response.json();
+            throw new Error(errData.error || 'Ошибка сервера');
+          }
+
+          const data = await response.json();
+          const testCases = data.test_cases;
+
+          if (!testCases || testCases.length === 0) {
+            resultContainer.innerHTML = '<p class="text-gray-500">Модель не вернула тест-кейсы.</p>';
+            return;
+          }
+
+          // Формируем читабельный вывод
+          let htmlOutput = '';
+          testCases.forEach((tc, idx) => {
+            htmlOutput += `<div class="mb-4 p-3 bg-white rounded shadow-sm border-l-4 border-indigo-400">`;
+            htmlOutput += `<p class="font-medium text-gray-700 mb-1">Тест-кейс #${idx+1}</p>`;
+            for (const [key, value] of Object.entries(tc)) {
+              htmlOutput += `<p class="text-sm"><span class="font-semibold text-gray-600">${key}:</span> ${escapeHtml(String(value))}</p>`;
+            }
+            htmlOutput += `</div>`;
+          });
+          resultContainer.innerHTML = htmlOutput;
+          copyBtn.classList.remove('hidden');
+
+          // Сохраняем сырой JSON для копирования
+          copyBtn.dataset.json = JSON.stringify(testCases, null, 2);
+
+        } catch (err) {
+          console.error(err);
+          resultContainer.innerHTML = `<p class="text-red-600">${escapeHtml(err.message)}</p>`;
+        } finally {
+          loadingMsg.classList.add('hidden');
+          generateBtn.disabled = false;
+        }
+      }
+
+      // Копирование в буфер
+      async function copyToClipboard() {
+        const jsonData = copyBtn.dataset.json;
+        if (!jsonData) return;
+        try {
+          await navigator.clipboard.writeText(jsonData);
+          alert('JSON скопирован в буфер обмена!');
+        } catch {
+          alert('Не удалось скопировать');
+        }
+      }
+
+      // Простая защита от XSS при вставке контента
+      function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      }
+
+      // ---------- Обработчики событий ----------
+      addFieldBtn.addEventListener('click', addField);
+      newFieldInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') addField();
+      });
+      generateBtn.addEventListener('click', generateTestCases);
+      copyBtn.addEventListener('click', copyToClipboard);
+
+      // Первоначальный рендер
+      renderFields();
+    })();
+  </script>
+</body>
+</html>
