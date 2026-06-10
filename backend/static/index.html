@@ -153,7 +153,12 @@
         const pages = await res.json();
         if (pages.length > 0) {
           pagesHint.classList.remove('hidden');
-          pagesHintList.innerHTML = pages.map(p => `<li>{{${p.name}}}</li>`).join('');
+          pagesHintList.innerHTML = pages.map(p =>
+  `<li class="flex items-center justify-between">
+    <span>{{${p.name}}}</span>
+    <button class="text-xs text-indigo-500 hover:underline" onclick="insertPlaceholder('{{${p.name}}}')">Вставить</button>
+  </li>`
+).join('');
         } else {
           pagesHint.classList.add('hidden');
         }
@@ -213,6 +218,12 @@
       } catch { alert('Не удалось скопировать'); }
     });
     function escapeHtml(text) { const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
+    // Новая функция лейсхолдерв
+    window.insertPlaceholder = function(placeholder) {
+      const textarea = document.getElementById('task-text');
+      textarea.value = textarea.value + ' ' + placeholder;
+      textarea.focus();
+    };
     renderFields();
 
     // ---------- Функциональность библиотеки страниц ----------

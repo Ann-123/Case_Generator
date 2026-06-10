@@ -1,6 +1,9 @@
 import sqlite3
 import os
-from datetime import datetime
+import logging
+import re
+
+logger = logging.getLogger(__name__)
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "pages.db")
 
@@ -18,11 +21,18 @@ def init_db():
     """)
     conn.commit()
     conn.close()
+    logger.info("Database pages.db initialized")
+
+def clean_page_name(raw_name: str) -> str:
+    cleaned = re.sub(r'[^\w\s\-]', '', raw_name, flags=re.UNICODE)
+    cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+    return cleaned.lower()
 
 def add_or_update_page(name: str, image_path: str, description: str):
+    name = clean_page_name(name)  # очищаем перед записью
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    # Если запись с таким именем уже есть – удалим старый файл и перезапишем
+    # Удаляем старый файл если есть
     old = c.execute("SELECT image_path FROM pages WHERE name = ?", (name,)).fetchone()
     if old and os.path.exists(old[0]):
         try:
@@ -35,6 +45,7 @@ def add_or_update_page(name: str, image_path: str, description: str):
     """, (name, image_path, description))
     conn.commit()
     conn.close()
+    logger.info(f"Page '{name}' saved with description: {description[:50]}...")
 
 def get_all_pages():
     conn = sqlite3.connect(DB_PATH)
@@ -42,17 +53,28 @@ def get_all_pages():
     conn.close()
     return [{"name": r[0], "description": r[1]} for r in rows]
 
-def get_page_description(name: str) -> str:
+
+# В файле database.py
+def get_page_description(name: str) -> str | None:
+    """Возвращает описание страницы, игнорируя регистр и невидимые символы."""
+    # Используем ту же самую функцию очистки, что и при сохранении
+    cleaned_name = clean_page_name(name)
+
     conn = sqlite3.connect(DB_PATH)
-    row = conn.execute("SELECT description FROM pages WHERE name = ?", (name,)).fetchone()
+    cursor = conn.execute(
+        "SELECT description FROM pages WHERE name = ?",
+        (cleaned_name,)
+    )
+    row = cursor.fetchone()
     conn.close()
-    return row[0] if row else ""
+    if row:
+        return row[0]
+    return None
 
 def delete_page(name: str) -> bool:
     conn = sqlite3.connect(DB_PATH)
     row = conn.execute("SELECT image_path FROM pages WHERE name = ?", (name,)).fetchone()
     if row:
-        # удаляем файл
         if os.path.exists(row[0]):
             try:
                 os.remove(row[0])
@@ -61,6 +83,7 @@ def delete_page(name: str) -> bool:
         conn.execute("DELETE FROM pages WHERE name = ?", (name,))
         conn.commit()
         conn.close()
+        logger.info(f"Page '{name}' deleted")
         return True
     conn.close()
     return False

@@ -5,6 +5,7 @@ from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from .database import add_or_update_page, get_all_pages, delete_page
 from openai import AsyncOpenAI
 import logging
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +27,16 @@ async def upload_page(
     if not name or not name.strip():
         raise HTTPException(400, "Имя страницы обязательно")
 
-    name = name.strip()
+    def clean_page_name(raw_name: str) -> str:
+        # Оставляем только буквы (любых алфавитов), цифры, пробелы, дефисы и подчёркивания
+        cleaned = re.sub(r'[^\w\s\-]', '', raw_name, flags=re.UNICODE)
+        # Удаляем лишние пробелы
+        cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+        return cleaned.lower()
+
+    name = clean_page_name(name)
+    if not name:
+        raise HTTPException(400, "Имя страницы не должно быть пустым после очистки")
     # Сохраняем файл
     ext = os.path.splitext(file.filename)[1] or ".png"
     filename = f"{name.replace(' ', '_')}_{os.urandom(4).hex()}{ext}"
@@ -49,7 +59,8 @@ async def upload_page(
                     "content": [
                         {"type": "text", "text": "Кратко опиши эту страницу интерфейса на русском языке:"
                                                  "ключевые элементы, кнопки. Описывай каждый элемент слева направо."
-                                                 "Сверху вниз. Без **. Каждый элемент выводи с новой строки."},
+                                                 "Сверху вниз. Наименованиие элемента должно быть в ковычках."
+                                                 "Каждый элемент выводи с новой строки."},
                         {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_data}"}}
                     ]
                 }
@@ -78,4 +89,3 @@ async def remove_page(name: str):
     if not delete_page(name):
         raise HTTPException(404, "Страница не найдена")
     return {"status": "deleted"}
-
