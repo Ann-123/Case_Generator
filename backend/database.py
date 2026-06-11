@@ -45,7 +45,7 @@ def add_or_update_page(name: str, image_path: str, description: str):
     """, (name, image_path, description))
     conn.commit()
     conn.close()
-    logger.info(f"Page '{name}' saved with description: {description[:50]}...")
+    logger.info(f"Page '{name}' saved with description: {description[:500]}...")
 
 def get_all_pages():
     conn = sqlite3.connect(DB_PATH)
@@ -72,6 +72,7 @@ def get_page_description(name: str) -> str | None:
     return None
 
 def delete_page(name: str) -> bool:
+    name = clean_page_name(name)
     conn = sqlite3.connect(DB_PATH)
     row = conn.execute("SELECT image_path FROM pages WHERE name = ?", (name,)).fetchone()
     if row:

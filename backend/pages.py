@@ -2,7 +2,7 @@ import os
 import base64
 import shutil
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
-from .database import add_or_update_page, get_all_pages, delete_page
+from .database import add_or_update_page, get_all_pages, delete_page, clean_page_name
 from openai import AsyncOpenAI
 import logging
 import re
@@ -26,13 +26,6 @@ async def upload_page(
         raise HTTPException(400, "Файл должен быть изображением")
     if not name or not name.strip():
         raise HTTPException(400, "Имя страницы обязательно")
-
-    def clean_page_name(raw_name: str) -> str:
-        # Оставляем только буквы (любых алфавитов), цифры, пробелы, дефисы и подчёркивания
-        cleaned = re.sub(r'[^\w\s\-]', '', raw_name, flags=re.UNICODE)
-        # Удаляем лишние пробелы
-        cleaned = re.sub(r'\s+', ' ', cleaned).strip()
-        return cleaned.lower()
 
     name = clean_page_name(name)
     if not name:
@@ -59,13 +52,14 @@ async def upload_page(
                     "content": [
                         {"type": "text", "text": "Кратко опиши эту страницу интерфейса на русском языке:"
                                                  "ключевые элементы, кнопки. Описывай каждый элемент слева направо."
-                                                 "Сверху вниз. Наименованиие элемента должно быть в ковычках."
-                                                 "Каждый элемент выводи с новой строки."},
+                                                 "Сверху вниз. Наименованиие элемента должно быть в ковычках,"
+                                                 "без дополнительных символов "
+                                                 "Описание должно начинаться с: 'на странице расположены элементы: ... '"},
                         {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_data}"}}
                     ]
                 }
             ],
-            max_tokens=300,
+            max_tokens=1000,
             temperature=0.3
         )
         description = response.choices[0].message.content.strip()
