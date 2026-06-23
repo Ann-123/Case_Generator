@@ -107,46 +107,25 @@
           <!-- Позитивные проверки -->
           <div class="flex-1 border rounded-lg p-4 bg-green-50/50">
             <label class="flex items-center gap-2 font-semibold text-green-800 mb-3 cursor-pointer select-none">
-              <input type="checkbox" class="column-toggle" data-column="positive" checked>
+              <input type="checkbox" class="column-toggle" data-category="positive" checked>
               Позитивные проверки
             </label>
-            <div class="mb-3">
-              <label class="flex items-center gap-2 font-medium text-sm text-gray-700 mb-1 cursor-pointer select-none">
-                <input type="checkbox" class="group-toggle" data-column="positive" data-group="functional" checked>
-                Функциональные
-              </label>
-              <div id="positive-functional" class="space-y-1 ml-4"></div>
-            </div>
-            <div>
-              <label class="flex items-center gap-2 font-medium text-sm text-gray-700 mb-1 cursor-pointer select-none">
-                <input type="checkbox" class="group-toggle" data-column="positive" data-group="non_functional" checked>
-                Нефункциональные
-              </label>
-              <div id="positive-non_functional" class="space-y-1 ml-4"></div>
-            </div>
+            <div id="positive-items" class="space-y-3"></div>
           </div>
 
           <!-- Негативные проверки -->
           <div class="flex-1 border rounded-lg p-4 bg-red-50/50">
             <label class="flex items-center gap-2 font-semibold text-red-800 mb-3 cursor-pointer select-none">
-              <input type="checkbox" class="column-toggle" data-column="negative" checked>
+              <input type="checkbox" class="column-toggle" data-category="negative" checked>
               Негативные проверки
             </label>
-            <div class="mb-3">
-              <label class="flex items-center gap-2 font-medium text-sm text-gray-700 mb-1 cursor-pointer select-none">
-                <input type="checkbox" class="group-toggle" data-column="negative" data-group="functional" checked>
-                Функциональные
-              </label>
-              <div id="negative-functional" class="space-y-1 ml-4"></div>
-            </div>
-            <div>
-              <label class="flex items-center gap-2 font-medium text-sm text-gray-700 mb-1 cursor-pointer select-none">
-                <input type="checkbox" class="group-toggle" data-column="negative" data-group="non_functional" checked>
-                Нефункциональные
-              </label>
-              <div id="negative-non_functional" class="space-y-1 ml-4"></div>
-            </div>
+            <div id="negative-items" class="space-y-3"></div>
           </div>
+        </div>
+
+        <div id="affected-areas-display" class="hidden text-sm text-gray-500 italic border-t pt-2">
+          <span class="font-medium">Затронутые области:</span>
+          <span id="affected-areas-list"></span>
         </div>
 
         <button id="generate-from-checklist-btn" class="w-full bg-green-600 text-white font-medium py-2 rounded hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed" disabled>Сгенерировать тест-кейсы по выбранным проверкам</button>
@@ -404,6 +383,8 @@
     const generateFromChecklistLoading = document.getElementById('generate-from-checklist-loading');
     const checklistResultContainer = document.getElementById('checklist-result-container');
     const checklistCopyBtn = document.getElementById('checklist-copy-btn');
+    const affectedAreasDisplay = document.getElementById('affected-areas-display');
+    const affectedAreasList = document.getElementById('affected-areas-list');
 
     let checklistData = null;
     let selectedChecklistIds = new Set();
@@ -412,9 +393,10 @@
       if (!checklistData) return [];
       const ids = [];
       for (const cat of ['positive', 'negative']) {
-        for (const sub of ['functional', 'non_functional']) {
-          const items = checklistData[cat][sub] || [];
-          items.forEach(item => ids.push(item.id));
+        for (const group of (checklistData[cat] || [])) {
+          for (const item of (group.items || [])) {
+            ids.push(item.id);
+          }
         }
       }
       return ids;
@@ -423,16 +405,18 @@
     function getColumnIds(cat) {
       if (!checklistData) return [];
       const ids = [];
-      for (const sub of ['functional', 'non_functional']) {
-        const items = checklistData[cat][sub] || [];
-        items.forEach(item => ids.push(item.id));
+      for (const group of (checklistData[cat] || [])) {
+        for (const item of (group.items || [])) {
+          ids.push(item.id);
+        }
       }
       return ids;
     }
 
-    function getGroupIds(cat, sub) {
+    function getAreaIds(cat, area) {
       if (!checklistData) return [];
-      return (checklistData[cat][sub] || []).map(item => item.id);
+      const group = (checklistData[cat] || []).find(g => g.area === area);
+      return group ? group.items.map(item => item.id) : [];
     }
 
     async function updateChecklistPagesHint() {
@@ -468,26 +452,21 @@
 
       toggleAllBtn.textContent = selected === total ? 'Снять всё' : 'Выбрать всё';
 
-      if (selected === 0) {
-        generateFromChecklistBtn.disabled = true;
-        generateFromChecklistError.classList.remove('hidden');
-      } else {
-        generateFromChecklistBtn.disabled = false;
-        generateFromChecklistError.classList.add('hidden');
-      }
+      generateFromChecklistBtn.disabled = selected === 0;
+      generateFromChecklistError.classList.toggle('hidden', selected !== 0);
 
       for (const cat of ['positive', 'negative']) {
-        for (const sub of ['functional', 'non_functional']) {
-          const groupIds = getGroupIds(cat, sub);
-          const groupCb = document.querySelector(`.group-toggle[data-column="${cat}"][data-group="${sub}"]`);
-          if (groupCb && groupIds.length > 0) {
-            groupCb.checked = groupIds.every(id => selectedChecklistIds.has(id));
-          }
-        }
         const colIds = getColumnIds(cat);
-        const colCb = document.querySelector(`.column-toggle[data-column="${cat}"]`);
+        const colCb = document.querySelector(`.column-toggle[data-category="${cat}"]`);
         if (colCb && colIds.length > 0) {
           colCb.checked = colIds.every(id => selectedChecklistIds.has(id));
+        }
+        for (const group of (checklistData[cat] || [])) {
+          const areaIds = getAreaIds(cat, group.area);
+          const areaCb = document.querySelector(`.area-toggle[data-category="${cat}"][data-area="${CSS.escape(group.area)}"]`);
+          if (areaCb && areaIds.length > 0) {
+            areaCb.checked = areaIds.every(id => selectedChecklistIds.has(id));
+          }
         }
       }
     }
@@ -495,21 +474,53 @@
     function renderChecklist() {
       if (!checklistData) return;
       for (const cat of ['positive', 'negative']) {
-        for (const sub of ['functional', 'non_functional']) {
-          const container = document.getElementById(`${cat}-${sub}`);
-          const items = checklistData[cat][sub] || [];
-          container.innerHTML = items.map(item => {
+        const container = document.getElementById(`${cat}-items`);
+        container.innerHTML = '';
+        const groups = checklistData[cat] || [];
+        groups.forEach(group => {
+          const areaDiv = document.createElement('div');
+          areaDiv.className = 'mb-3';
+          const header = document.createElement('label');
+          header.className = 'flex items-center gap-2 font-medium text-sm text-gray-700 mb-1 cursor-pointer select-none';
+          const areaCb = document.createElement('input');
+          areaCb.type = 'checkbox';
+          areaCb.className = 'area-toggle';
+          areaCb.dataset.category = cat;
+          areaCb.dataset.area = group.area;
+          const areaIds = getAreaIds(cat, group.area);
+          areaCb.checked = areaIds.length > 0 && areaIds.every(id => selectedChecklistIds.has(id));
+          header.appendChild(areaCb);
+          header.appendChild(document.createTextNode(' ' + escapeHtml(group.area)));
+          const itemsDiv = document.createElement('div');
+          itemsDiv.className = 'space-y-1 ml-4';
+          (group.items || []).forEach(item => {
             const checked = selectedChecklistIds.has(item.id);
-            return `<label class="flex items-center gap-2 text-sm py-0.5 cursor-pointer select-none ${
-              checked ? '' : 'opacity-50'
-            }" data-id="${item.id}">
-              <input type="checkbox" class="item-checkbox" data-id="${item.id}" ${
-                checked ? 'checked' : ''
-              }>
-              <span class="${checked ? '' : 'line-through text-gray-400'}">${escapeHtml(item.text)}</span>
-            </label>`;
-          }).join('');
-        }
+            const label = document.createElement('label');
+            label.className = `flex items-center gap-2 text-sm py-0.5 cursor-pointer select-none ${checked ? '' : 'opacity-50'}`;
+            label.dataset.id = item.id;
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.className = 'item-checkbox';
+            cb.dataset.id = item.id;
+            cb.checked = checked;
+            const span = document.createElement('span');
+            span.className = checked ? '' : 'line-through text-gray-400';
+            span.textContent = item.text;
+            label.appendChild(cb);
+            label.appendChild(span);
+            itemsDiv.appendChild(label);
+          });
+          areaDiv.appendChild(header);
+          areaDiv.appendChild(itemsDiv);
+          container.appendChild(areaDiv);
+        });
+      }
+      // Affected areas
+      if (checklistData.affected_areas && checklistData.affected_areas.length > 0) {
+        affectedAreasDisplay.classList.remove('hidden');
+        affectedAreasList.textContent = checklistData.affected_areas.join(', ');
+      } else {
+        affectedAreasDisplay.classList.add('hidden');
       }
       updateChecklistUI();
     }
@@ -524,7 +535,7 @@
       const label = e.target.closest('label');
       if (label) {
         label.classList.toggle('opacity-50', !e.target.checked);
-        const span = label.querySelector('span');
+        const span = label.querySelector('span:not(.font-medium)');
         if (span) {
           span.classList.toggle('line-through', !e.target.checked);
           span.classList.toggle('text-gray-400', !e.target.checked);
@@ -533,38 +544,32 @@
       updateChecklistUI();
     }
 
-    function handleGroupToggle(e) {
-      const cat = e.target.dataset.column;
-      const sub = e.target.dataset.group;
-      const groupIds = getGroupIds(cat, sub);
+    function handleAreaToggle(e) {
+      const cat = e.target.dataset.category;
+      const area = e.target.dataset.area;
+      const areaIds = getAreaIds(cat, area);
       const checked = e.target.checked;
-      groupIds.forEach(id => {
-        if (checked) {
-          selectedChecklistIds.add(id);
-        } else {
-          selectedChecklistIds.delete(id);
-        }
+      areaIds.forEach(id => {
+        if (checked) selectedChecklistIds.add(id);
+        else selectedChecklistIds.delete(id);
       });
       renderChecklist();
     }
 
     function handleColumnToggle(e) {
-      const cat = e.target.dataset.column;
+      const cat = e.target.dataset.category;
       const colIds = getColumnIds(cat);
       const checked = e.target.checked;
       colIds.forEach(id => {
-        if (checked) {
-          selectedChecklistIds.add(id);
-        } else {
-          selectedChecklistIds.delete(id);
-        }
+        if (checked) selectedChecklistIds.add(id);
+        else selectedChecklistIds.delete(id);
       });
       renderChecklist();
     }
 
     toggleAllBtn.addEventListener('click', () => {
       const allIds = getAllChecklistIds();
-      const allSelected = allIds.every(id => selectedChecklistIds.has(id));
+      const allSelected = allIds.length > 0 && allIds.every(id => selectedChecklistIds.has(id));
       if (allSelected) {
         selectedChecklistIds.clear();
       } else {
@@ -576,8 +581,8 @@
     document.addEventListener('change', (e) => {
       if (e.target.classList.contains('item-checkbox')) {
         handleItemCheck(e);
-      } else if (e.target.classList.contains('group-toggle')) {
-        handleGroupToggle(e);
+      } else if (e.target.classList.contains('area-toggle')) {
+        handleAreaToggle(e);
       } else if (e.target.classList.contains('column-toggle')) {
         handleColumnToggle(e);
       }
@@ -624,10 +629,10 @@
       if (!checklistData) return [];
       const items = [];
       for (const cat of ['positive', 'negative']) {
-        for (const sub of ['functional', 'non_functional']) {
-          for (const item of (checklistData[cat][sub] || [])) {
+        for (const group of (checklistData[cat] || [])) {
+          for (const item of (group.items || [])) {
             if (selectedChecklistIds.has(item.id)) {
-              items.push({ id: item.id, text: item.text, category: cat, subcategory: sub });
+              items.push({ id: item.id, text: item.text, category: cat, area: group.area });
             }
           }
         }
@@ -646,7 +651,6 @@
 
       let genFields = [...fields];
       if (!genFields.includes('Тип')) genFields.push('Тип');
-      if (!genFields.includes('Категория')) genFields.push('Категория');
 
       generateFromChecklistBtn.disabled = true;
       generateFromChecklistLoading.classList.remove('hidden');

@@ -80,7 +80,7 @@ class ChecklistItemData(BaseModel):
     id: str
     text: str
     category: str
-    subcategory: str
+    area: str = ""
 
 
 class GenerateChecklistRequest(BaseModel):
@@ -129,50 +129,69 @@ def replace_placeholders(text: str) -> str:
 
 # ----------- Промпт для генерации чек-листа ----------
 CHECKLIST_SYSTEM_PROMPT = (
-    "Ты — опытный QA-инженер. На основе описания задачи составь максимально полный "
-    "чек-лист проверок, покрывающий весь описанный функционал.\n\n"
+    "## Роль\n"
+    "Ты — профессиональный инженер по тестированию качества (QA). "
+    "Твоя задача — создать исчерпывающий контрольный список тестирования "
+    "на основе предоставленных требований, пользовательских историй или "
+    "описания функционала.\n\n"
+    "## Инструкции\n"
+    "1. Внимательно прочти предоставленные требования (пользовательская "
+    "история, описание функции, спецификация).\n"
+    "2. Проанализируй затронутые области приложения.\n"
+    "3. Сосредоточься на различных типах тестирования и раздели пункты "
+    "контрольного списка по типу тестирования.\n"
+    "4. Каждый пункт контрольного списка должен быть выполнимым "
+    "(конкретным, измеримым, однозначным).\n"
+    "5. Пункты не должны дублироваться.\n"
+    "6. Каждый пункт должен начинаться со слова «Проверить».\n"
+    "7. Опиши как позитивные, так и негативные сценарии, а также "
+    "критический путь.\n"
+    "8. Позитивные сценарии, негативные сценарии и критический путь "
+    "должны быть логически объединены по областям функционала.\n"
+    "9. Контрольный список должен быть составлен для людей, не обладающих "
+    "знаниями кода приложения.\n"
+    "10. В конце контрольного списка укажи затронутые области "
+    "(affected_areas).\n\n"
+    "## Структура ответа\n\n"
     "Раздели проверки на две основные категории:\n"
-    "1. Позитивные проверки (positive) — проверки корректной работы функционала "
-    "при правильных входных данных\n"
-    "2. Негативные проверки (negative) — проверки обработки ошибок, граничных "
-    "случаев, некорректных данных\n\n"
-    "Внутри каждой категории раздели проверки на:\n"
-    "- Функциональные (functional) — проверки непосредственно функционала, "
-    "бизнес-логики, корректности работы\n"
-    "- Нефункциональные (non_functional) — проверки производительности, "
-    "безопасности, совместимости, UI/UX, удобства использования\n\n"
+    "- Позитивные проверки (positive) — проверки корректной работы "
+    "функционала при правильных входных данных, включая критический путь\n"
+    "- Негативные проверки (negative) — проверки обработки ошибок, "
+    "граничных случаев, некорректных данных\n\n"
+    "Внутри каждой категории проверки группируются по функциональным "
+    "областям (например, «Авторизация», «Поиск», «Оформление заказа»). "
+    "Название области указывается в поле `area`.\n\n"
     "Формат ответа — строгий JSON со следующей структурой:\n"
     '{\n'
     '  "checklist": {\n'
-    '    "positive": {\n'
-    '      "functional": [\n'
-    '        {"id": "p-f-1", "text": "Текст проверки..."},\n'
-    '        ...\n'
-    '      ],\n'
-    '      "non_functional": [\n'
-    '        {"id": "p-nf-1", "text": "Текст проверки..."},\n'
-    '        ...\n'
-    '      ]\n'
-    '    },\n'
-    '    "negative": {\n'
-    '      "functional": [\n'
-    '        {"id": "n-f-1", "text": "Текст проверки..."},\n'
-    '        ...\n'
-    '      ],\n'
-    '      "non_functional": [\n'
-    '        {"id": "n-nf-1", "text": "Текст проверки..."},\n'
-    '        ...\n'
-    '      ]\n'
-    '    }\n'
+    '    "positive": [\n'
+    '      {\n'
+    '        "area": "Название функциональной области",\n'
+    '        "items": [\n'
+    '          {"id": "p-1", "text": "Проверить, что ..."},\n'
+    '          {"id": "p-2", "text": "Проверить, что ..."}\n'
+    '        ]\n'
+    '      }\n'
+    '    ],\n'
+    '    "negative": [\n'
+    '      {\n'
+    '        "area": "Название функциональной области",\n'
+    '        "items": [\n'
+    '          {"id": "n-1", "text": "Проверить, что ..."},\n'
+    '          {"id": "n-2", "text": "Проверить, что ..."}\n'
+    '        ]\n'
+    '      }\n'
+    '    ],\n'
+    '    "affected_areas": [\n'
+    '      "список затронутых областей приложения"\n'
+    '    ]\n'
     '  }\n'
     '}\n\n'
-    "ВАЖНО:\n"
-    "- Каждая проверка должна быть конкретной, измеримой и однозначной.\n"
-    "- Для каждой проверки укажи уникальный id в формате: p-f-{номер}, "
-    "p-nf-{номер}, n-f-{номер}, n-nf-{номер}.\n"
-    "- Текст проверки должен быть чётким и понятным, в виде одного предложения.\n"
-    "- Сгенерируй минимум 2-3 проверки в каждой подкатегории.\n"
-    "- Не добавляй лишних полей, только указанную структуру.\n"
+    "ОГРАНИЧЕНИЯ:\n"
+    "- Используй тот же язык, что и ввод пользователя.\n"
+    "- Создавай только контрольные списки тестирования — не создавай, "
+    "не изменяй и не обновляй никакие внешние задачи или системы.\n"
+    "- Не добавляй лишних полей, кроме указанной структуры JSON.\n"
     "- Оберни ответ в чистый JSON, без markdown-разметки."
 )
 
@@ -231,11 +250,10 @@ async def generate_checklist(req: GenerateChecklistRequest):
             )
 
         for key in ["positive", "negative"]:
-            if key not in checklist or not isinstance(checklist[key], dict):
-                checklist[key] = {}
-            for sub in ["functional", "non_functional"]:
-                if sub not in checklist[key] or not isinstance(checklist[key][sub], list):
-                    checklist[key][sub] = []
+            if key not in checklist or not isinstance(checklist[key], list):
+                checklist[key] = []
+        if "affected_areas" not in checklist or not isinstance(checklist["affected_areas"], list):
+            checklist["affected_areas"] = []
 
         return {"checklist": checklist}
 
@@ -265,8 +283,6 @@ async def generate_test_cases(req: GenerateRequest):
     if req.checklist_items:
         if "Тип" not in active_fields:
             active_fields.append("Тип")
-        if "Категория" not in active_fields:
-            active_fields.append("Категория")
 
     TestCaseModel = build_dynamic_test_case_model(active_fields)
     fields_list = ", ".join(active_fields)
@@ -287,36 +303,28 @@ async def generate_test_cases(req: GenerateRequest):
 
     if req.checklist_items:
         system_prompt += (
-            "\n\nТакже для каждого тест-кейса обязательно укажи поля 'Тип' "
-            "(Позитивный/Негативный) и 'Категория' (Функциональный/Нефункциональный) "
-            "в соответствии с категорией проверки из чек-листа."
+            "\n\nТакже для каждого тест-кейса обязательно укажи поле 'Тип' "
+            "(Позитивный/Негативный) в соответствии с категорией проверки из чек-листа."
         )
 
         cat_labels = {"positive": "Позитивные", "negative": "Негативные"}
-        sub_labels = {"functional": "Функциональные", "non_functional": "Нефункциональные"}
-        grouped = {
-            "positive": {"functional": [], "non_functional": []},
-            "negative": {"functional": [], "non_functional": []},
-        }
+        grouped = {}
         for item in req.checklist_items:
-            cat = item.category
-            sub = item.subcategory
-            if cat in grouped and sub in grouped[cat]:
-                grouped[cat][sub].append(item)
+            area = item.area or "Общее"
+            if area not in grouped:
+                grouped[area] = []
+            grouped[area].append(item)
 
         lines = [
             "Генерация должна выполняться ТОЛЬКО для следующих выбранных пунктов "
             "чек-листа:\n"
         ]
-        for cat in ["positive", "negative"]:
-            lines.append(f"=== {cat_labels[cat]} проверки ===")
-            for sub in ["functional", "non_functional"]:
-                items = grouped[cat][sub]
-                if items:
-                    lines.append(f"--- {sub_labels[sub]} ---")
-                    for it in items:
-                        lines.append(f"  [{it.id}] {it.text}")
-                    lines.append("")
+        for area, items in grouped.items():
+            lines.append(f"--- {area} ---")
+            for it in items:
+                cat_label = cat_labels.get(it.category, it.category)
+                lines.append(f"  [{it.id}] {it.text} ({cat_label})")
+            lines.append("")
         checklist_context = "\n".join(lines)
 
         user_prompt = (

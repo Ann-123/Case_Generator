@@ -340,22 +340,23 @@ class TestGenerateChecklist:
         mock_response.choices[0].message.content = json.dumps(
             {
                 "checklist": {
-                    "positive": {
-                        "functional": [
-                            {"id": "p-f-1", "text": "Вход с валидным email и паролем"}
-                        ],
-                        "non_functional": [
-                            {"id": "p-nf-1", "text": "Время загрузки страницы входа"}
-                        ],
-                    },
-                    "negative": {
-                        "functional": [
-                            {"id": "n-f-1", "text": "Вход с неверным паролем"}
-                        ],
-                        "non_functional": [
-                            {"id": "n-nf-1", "text": "Проверка XSS в полях ввода"}
-                        ],
-                    },
+                    "positive": [
+                        {
+                            "area": "Авторизация",
+                            "items": [
+                                {"id": "p-1", "text": "Проверить вход с валидным email и паролем"}
+                            ],
+                        }
+                    ],
+                    "negative": [
+                        {
+                            "area": "Авторизация",
+                            "items": [
+                                {"id": "n-1", "text": "Проверить вход с неверным паролем"}
+                            ],
+                        }
+                    ],
+                    "affected_areas": ["Авторизация"],
                 }
             }
         )
@@ -371,9 +372,11 @@ class TestGenerateChecklist:
         checklist = data["checklist"]
         assert "positive" in checklist
         assert "negative" in checklist
-        assert len(checklist["positive"]["functional"]) == 1
-        assert checklist["positive"]["functional"][0]["id"] == "p-f-1"
-        assert len(checklist["negative"]["non_functional"]) == 1
+        assert isinstance(checklist["positive"], list)
+        assert len(checklist["positive"]) == 1
+        assert checklist["positive"][0]["items"][0]["id"] == "p-1"
+        assert "affected_areas" in checklist
+        assert "Авторизация" in checklist["affected_areas"]
 
     def test_generate_checklist_empty_task(self, client):
         response = client.post(
@@ -426,7 +429,7 @@ class TestGenerateChecklist:
         mock_response = MagicMock()
         mock_response.choices = [MagicMock()]
         mock_response.choices[0].message.content = json.dumps(
-            {"checklist": {"positive": {"functional": [{"id": "p-f-1", "text": "Test"}]}}}
+            {"checklist": {"positive": [{"area": "Логин", "items": [{"id": "p-1", "text": "Test"}]}]}}
         )
         mock_create.return_value = mock_response
 
@@ -437,8 +440,9 @@ class TestGenerateChecklist:
         assert response.status_code == 200
         checklist = response.json()["checklist"]
         assert "negative" in checklist
-        assert "non_functional" in checklist["positive"]
-        assert checklist["positive"]["non_functional"] == []
+        assert checklist["negative"] == []
+        assert "affected_areas" in checklist
+        assert checklist["affected_areas"] == []
 
 
 class TestGenerateWithChecklist:
@@ -457,7 +461,6 @@ class TestGenerateWithChecklist:
                         "Шаги": "1. Ввести email\n2. Ввести пароль\n3. Нажать кнопку",
                         "Ожидаемый результат": "Пользователь вошёл",
                         "Тип": "Позитивный",
-                        "Категория": "Функциональный",
                     }
                 ]
             }
@@ -471,10 +474,10 @@ class TestGenerateWithChecklist:
                 "fields": ["Название", "Шаги", "Ожидаемый результат"],
                 "checklist_items": [
                     {
-                        "id": "p-f-1",
-                        "text": "Вход с валидным email и паролем",
+                        "id": "p-1",
+                        "text": "Проверить вход с валидным email и паролем",
                         "category": "positive",
-                        "subcategory": "functional",
+                        "area": "Авторизация",
                     }
                 ],
             },
@@ -485,14 +488,13 @@ class TestGenerateWithChecklist:
         assert len(data["test_cases"]) == 1
         tc = data["test_cases"][0]
         assert tc["Тип"] == "Позитивный"
-        assert tc["Категория"] == "Функциональный"
 
     @patch("backend.main.client.chat.completions.create", new_callable=AsyncMock)
     def test_generate_with_checklist_passes_context(self, mock_create, client):
         mock_response = MagicMock()
         mock_response.choices = [MagicMock()]
         mock_response.choices[0].message.content = json.dumps(
-            {"test_cases": [{"Название": "Test", "Тип": "Негативный", "Категория": "Функциональный"}]}
+            {"test_cases": [{"Название": "Test", "Тип": "Негативный"}]}
         )
         mock_create.return_value = mock_response
 
@@ -503,10 +505,10 @@ class TestGenerateWithChecklist:
                 "fields": ["Название"],
                 "checklist_items": [
                     {
-                        "id": "n-f-1",
-                        "text": "Вход с неверным паролем",
+                        "id": "n-1",
+                        "text": "Проверить вход с неверным паролем",
                         "category": "negative",
-                        "subcategory": "functional",
+                        "area": "Авторизация",
                     }
                 ],
             },
@@ -516,8 +518,7 @@ class TestGenerateWithChecklist:
         sent_messages = mock_create.call_args[1]["messages"]
         user_msg = [m for m in sent_messages if m["role"] == "user"][0]["content"]
         assert "неверным паролем" in user_msg
-        assert "Негативные" in user_msg or "negative" in user_msg
+        assert "Авторизация" in user_msg
 
         system_msg = [m for m in sent_messages if m["role"] == "system"][0]["content"]
         assert "Тип" in system_msg
-        assert "Категория" in system_msg
