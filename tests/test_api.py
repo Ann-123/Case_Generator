@@ -330,3 +330,194 @@ class TestGenerate:
         )
         assert response.status_code == 500
         assert "Ошибка:" in response.json()["error"]
+
+
+class TestGenerateChecklist:
+    @patch("backend.main.client.chat.completions.create", new_callable=AsyncMock)
+    def test_generate_checklist_success(self, mock_create, client):
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock()]
+        mock_response.choices[0].message.content = json.dumps(
+            {
+                "checklist": {
+                    "positive": {
+                        "functional": [
+                            {"id": "p-f-1", "text": "Вход с валидным email и паролем"}
+                        ],
+                        "non_functional": [
+                            {"id": "p-nf-1", "text": "Время загрузки страницы входа"}
+                        ],
+                    },
+                    "negative": {
+                        "functional": [
+                            {"id": "n-f-1", "text": "Вход с неверным паролем"}
+                        ],
+                        "non_functional": [
+                            {"id": "n-nf-1", "text": "Проверка XSS в полях ввода"}
+                        ],
+                    },
+                }
+            }
+        )
+        mock_create.return_value = mock_response
+
+        response = client.post(
+            "/generate-checklist",
+            json={"task_text": "Проверить форму входа"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "checklist" in data
+        checklist = data["checklist"]
+        assert "positive" in checklist
+        assert "negative" in checklist
+        assert len(checklist["positive"]["functional"]) == 1
+        assert checklist["positive"]["functional"][0]["id"] == "p-f-1"
+        assert len(checklist["negative"]["non_functional"]) == 1
+
+    def test_generate_checklist_empty_task(self, client):
+        response = client.post(
+            "/generate-checklist",
+            json={"task_text": ""},
+        )
+        assert response.status_code == 400
+        assert response.json()["error"] == "Текст задачи пуст"
+
+    @patch("backend.main.client.chat.completions.create", new_callable=AsyncMock)
+    def test_generate_checklist_invalid_json(self, mock_create, client):
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock()]
+        mock_response.choices[0].message.content = "not valid json"
+        mock_create.return_value = mock_response
+
+        response = client.post(
+            "/generate-checklist",
+            json={"task_text": "test"},
+        )
+        assert response.status_code == 500
+        assert "JSON" in response.json()["error"]
+
+    @patch("backend.main.client.chat.completions.create", new_callable=AsyncMock)
+    def test_generate_checklist_no_structure(self, mock_create, client):
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock()]
+        mock_response.choices[0].message.content = json.dumps({"wrong": "data"})
+        mock_create.return_value = mock_response
+
+        response = client.post(
+            "/generate-checklist",
+            json={"task_text": "test"},
+        )
+        assert response.status_code == 500
+        assert "чек-листа" in response.json()["error"]
+
+    @patch("backend.main.client.chat.completions.create", new_callable=AsyncMock)
+    def test_generate_checklist_llm_exception(self, mock_create, client):
+        mock_create.side_effect = RuntimeError("LLM error")
+
+        response = client.post(
+            "/generate-checklist",
+            json={"task_text": "test"},
+        )
+        assert response.status_code == 500
+
+    @patch("backend.main.client.chat.completions.create", new_callable=AsyncMock)
+    def test_generate_checklist_missing_sections(self, mock_create, client):
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock()]
+        mock_response.choices[0].message.content = json.dumps(
+            {"checklist": {"positive": {"functional": [{"id": "p-f-1", "text": "Test"}]}}}
+        )
+        mock_create.return_value = mock_response
+
+        response = client.post(
+            "/generate-checklist",
+            json={"task_text": "test"},
+        )
+        assert response.status_code == 200
+        checklist = response.json()["checklist"]
+        assert "negative" in checklist
+        assert "non_functional" in checklist["positive"]
+        assert checklist["positive"]["non_functional"] == []
+
+
+class TestGenerateWithChecklist:
+    @patch("backend.main.client.chat.completions.create", new_callable=AsyncMock)
+    @patch("backend.main.get_page_description")
+    def test_generate_with_checklist_items(self, mock_get_desc, mock_create, client):
+        mock_get_desc.return_value = "описание: кнопка входа, поле email"
+
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock()]
+        mock_response.choices[0].message.content = json.dumps(
+            {
+                "test_cases": [
+                    {
+                        "Название": "Вход с валидными данными",
+                        "Шаги": "1. Ввести email\n2. Ввести пароль\n3. Нажать кнопку",
+                        "Ожидаемый результат": "Пользователь вошёл",
+                        "Тип": "Позитивный",
+                        "Категория": "Функциональный",
+                    }
+                ]
+            }
+        )
+        mock_create.return_value = mock_response
+
+        response = client.post(
+            "/generate",
+            json={
+                "task_text": "Проверить вход {{login}}",
+                "fields": ["Название", "Шаги", "Ожидаемый результат"],
+                "checklist_items": [
+                    {
+                        "id": "p-f-1",
+                        "text": "Вход с валидным email и паролем",
+                        "category": "positive",
+                        "subcategory": "functional",
+                    }
+                ],
+            },
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "test_cases" in data
+        assert len(data["test_cases"]) == 1
+        tc = data["test_cases"][0]
+        assert tc["Тип"] == "Позитивный"
+        assert tc["Категория"] == "Функциональный"
+
+    @patch("backend.main.client.chat.completions.create", new_callable=AsyncMock)
+    def test_generate_with_checklist_passes_context(self, mock_create, client):
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock()]
+        mock_response.choices[0].message.content = json.dumps(
+            {"test_cases": [{"Название": "Test", "Тип": "Негативный", "Категория": "Функциональный"}]}
+        )
+        mock_create.return_value = mock_response
+
+        response = client.post(
+            "/generate",
+            json={
+                "task_text": "test",
+                "fields": ["Название"],
+                "checklist_items": [
+                    {
+                        "id": "n-f-1",
+                        "text": "Вход с неверным паролем",
+                        "category": "negative",
+                        "subcategory": "functional",
+                    }
+                ],
+            },
+        )
+        assert response.status_code == 200
+
+        sent_messages = mock_create.call_args[1]["messages"]
+        user_msg = [m for m in sent_messages if m["role"] == "user"][0]["content"]
+        assert "неверным паролем" in user_msg
+        assert "Негативные" in user_msg or "negative" in user_msg
+
+        system_msg = [m for m in sent_messages if m["role"] == "system"][0]["content"]
+        assert "Тип" in system_msg
+        assert "Категория" in system_msg

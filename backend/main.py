@@ -73,6 +73,18 @@ app.include_router(pages_router)
 class GenerateRequest(BaseModel):
     task_text: str
     fields: List[str]
+    checklist_items: Optional[List["ChecklistItemData"]] = None
+
+
+class ChecklistItemData(BaseModel):
+    id: str
+    text: str
+    category: str
+    subcategory: str
+
+
+class GenerateChecklistRequest(BaseModel):
+    task_text: str
 
 
 def build_dynamic_test_case_model(fields: List[str]) -> BaseModel:
@@ -115,6 +127,123 @@ def replace_placeholders(text: str) -> str:
     return re.sub(r"\{\{(.+?)\}\}", replacer, text)
 
 
+# ----------- Промпт для генерации чек-листа ----------
+CHECKLIST_SYSTEM_PROMPT = (
+    "Ты — опытный QA-инженер. На основе описания задачи составь максимально полный "
+    "чек-лист проверок, покрывающий весь описанный функционал.\n\n"
+    "Раздели проверки на две основные категории:\n"
+    "1. Позитивные проверки (positive) — проверки корректной работы функционала "
+    "при правильных входных данных\n"
+    "2. Негативные проверки (negative) — проверки обработки ошибок, граничных "
+    "случаев, некорректных данных\n\n"
+    "Внутри каждой категории раздели проверки на:\n"
+    "- Функциональные (functional) — проверки непосредственно функционала, "
+    "бизнес-логики, корректности работы\n"
+    "- Нефункциональные (non_functional) — проверки производительности, "
+    "безопасности, совместимости, UI/UX, удобства использования\n\n"
+    "Формат ответа — строгий JSON со следующей структурой:\n"
+    '{\n'
+    '  "checklist": {\n'
+    '    "positive": {\n'
+    '      "functional": [\n'
+    '        {"id": "p-f-1", "text": "Текст проверки..."},\n'
+    '        ...\n'
+    '      ],\n'
+    '      "non_functional": [\n'
+    '        {"id": "p-nf-1", "text": "Текст проверки..."},\n'
+    '        ...\n'
+    '      ]\n'
+    '    },\n'
+    '    "negative": {\n'
+    '      "functional": [\n'
+    '        {"id": "n-f-1", "text": "Текст проверки..."},\n'
+    '        ...\n'
+    '      ],\n'
+    '      "non_functional": [\n'
+    '        {"id": "n-nf-1", "text": "Текст проверки..."},\n'
+    '        ...\n'
+    '      ]\n'
+    '    }\n'
+    '  }\n'
+    '}\n\n'
+    "ВАЖНО:\n"
+    "- Каждая проверка должна быть конкретной, измеримой и однозначной.\n"
+    "- Для каждой проверки укажи уникальный id в формате: p-f-{номер}, "
+    "p-nf-{номер}, n-f-{номер}, n-nf-{номер}.\n"
+    "- Текст проверки должен быть чётким и понятным, в виде одного предложения.\n"
+    "- Сгенерируй минимум 2-3 проверки в каждой подкатегории.\n"
+    "- Не добавляй лишних полей, только указанную структуру.\n"
+    "- Оберни ответ в чистый JSON, без markdown-разметки."
+)
+
+
+# ----------- Эндпоинт генерации чек-листа ----------
+@app.post("/generate-checklist")
+async def generate_checklist(req: GenerateChecklistRequest):
+    if not req.task_text.strip():
+        return JSONResponse(status_code=400, content={"error": "Текст задачи пуст"})
+
+    processed_task = replace_placeholders(req.task_text)
+
+    raw_content = ""
+    try:
+        response = await client.chat.completions.create(
+            model=MODEL,
+            messages=[
+                {"role": "system", "content": CHECKLIST_SYSTEM_PROMPT},
+                {"role": "user", "content": f"Описание задачи:\n{processed_task}"},
+            ],
+            temperature=0.3,
+            response_format={"type": "json_object"},
+        )
+        raw_content = response.choices[0].message.content.strip()
+
+        try:
+            parsed = json.loads(raw_content)
+        except json.JSONDecodeError:
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "error": "Ответ модели не является валидным JSON",
+                    "raw_response": raw_content,
+                },
+            )
+
+        checklist = None
+        if isinstance(parsed, dict) and "checklist" in parsed:
+            checklist = parsed["checklist"]
+        elif isinstance(parsed, dict):
+            if "positive" in parsed or "negative" in parsed:
+                checklist = parsed
+            else:
+                for key, val in parsed.items():
+                    if isinstance(val, dict) and ("positive" in val or "negative" in val):
+                        checklist = val
+                        break
+
+        if checklist is None:
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "error": "Не удалось найти структуру чек-листа в ответе модели",
+                    "raw_response": raw_content,
+                },
+            )
+
+        for key in ["positive", "negative"]:
+            if key not in checklist or not isinstance(checklist[key], dict):
+                checklist[key] = {}
+            for sub in ["functional", "non_functional"]:
+                if sub not in checklist[key] or not isinstance(checklist[key][sub], list):
+                    checklist[key][sub] = []
+
+        return {"checklist": checklist}
+
+    except Exception as e:
+        traceback.print_exc()
+        return JSONResponse(status_code=500, content={"error": f"Ошибка: {str(e)}"})
+
+
 # ----------- Основной эндпоинт генерации ----------
 @app.post("/generate")
 async def generate_test_cases(req: GenerateRequest):
@@ -132,8 +261,15 @@ async def generate_test_cases(req: GenerateRequest):
     # Подстановка описаний страниц
     processed_task = replace_placeholders(req.task_text)
 
-    TestCaseModel = build_dynamic_test_case_model(req.fields)
-    fields_list = ", ".join(req.fields)
+    active_fields = list(req.fields)
+    if req.checklist_items:
+        if "Тип" not in active_fields:
+            active_fields.append("Тип")
+        if "Категория" not in active_fields:
+            active_fields.append("Категория")
+
+    TestCaseModel = build_dynamic_test_case_model(active_fields)
+    fields_list = ", ".join(active_fields)
 
     system_prompt = (
         "Ты — опытный QA-инженер. На основе описания задачи сгенерируй список тест-кейсов. "
@@ -148,7 +284,46 @@ async def generate_test_cases(req: GenerateRequest):
         f"{fields_list}. "
         "Не добавляй других ключей. Оберни ответ в чистый JSON, без markdown-разметки."
     )
-    user_prompt = f"Описание задачи:\n{processed_task}"
+
+    if req.checklist_items:
+        system_prompt += (
+            "\n\nТакже для каждого тест-кейса обязательно укажи поля 'Тип' "
+            "(Позитивный/Негативный) и 'Категория' (Функциональный/Нефункциональный) "
+            "в соответствии с категорией проверки из чек-листа."
+        )
+
+        cat_labels = {"positive": "Позитивные", "negative": "Негативные"}
+        sub_labels = {"functional": "Функциональные", "non_functional": "Нефункциональные"}
+        grouped = {
+            "positive": {"functional": [], "non_functional": []},
+            "negative": {"functional": [], "non_functional": []},
+        }
+        for item in req.checklist_items:
+            cat = item.category
+            sub = item.subcategory
+            if cat in grouped and sub in grouped[cat]:
+                grouped[cat][sub].append(item)
+
+        lines = [
+            "Генерация должна выполняться ТОЛЬКО для следующих выбранных пунктов "
+            "чек-листа:\n"
+        ]
+        for cat in ["positive", "negative"]:
+            lines.append(f"=== {cat_labels[cat]} проверки ===")
+            for sub in ["functional", "non_functional"]:
+                items = grouped[cat][sub]
+                if items:
+                    lines.append(f"--- {sub_labels[sub]} ---")
+                    for it in items:
+                        lines.append(f"  [{it.id}] {it.text}")
+                    lines.append("")
+        checklist_context = "\n".join(lines)
+
+        user_prompt = (
+            f"Описание задачи:\n{processed_task}\n\n{checklist_context}"
+        )
+    else:
+        user_prompt = f"Описание задачи:\n{processed_task}"
 
     raw_content = ""
     try:
@@ -210,7 +385,7 @@ async def generate_test_cases(req: GenerateRequest):
                 # Преобразуем поля-списки в строки
                 case_dict = {}
                 for field_name, alias in zip(
-                    [f"field_{i}" for i in range(len(req.fields))], req.fields
+                    [f"field_{i}" for i in range(len(active_fields))], active_fields
                 ):
                     value = getattr(validated, field_name)
                     if isinstance(value, list):
