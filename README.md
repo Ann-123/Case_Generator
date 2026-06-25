@@ -39,8 +39,8 @@ qa-case-generator/
 │ ├── database.py # SQLite для библиотеки страниц  
 │ ├── pages.py # Роутер загрузки/списка/удаления скриншотов  
 │ └── static/  
-│ ├── index.html # Фронтенд (HTML + Tailwind CDN + встроенный JS)  
-│ └── uploads/ # Сохранённые скриншоты  
+│ | ├── index.html # Фронтенд (HTML + Tailwind CDN + встроенный JS)  
+│ | └── uploads/ # Сохранённые скриншоты  
 ├── requirements.txt  
 ├── .env # API-ключи и конфигурация (не коммитить!)  
 └── README.md  
@@ -100,6 +100,6 @@ POST /generate – генерация тест-кейсов
 Отправьте ```multipart/form-data``` с полями ```file``` (изображение) и ```name``` (уникальное имя).
 Модель вернёт описание страницы, которое сохранится в SQLite.
 
-```POST /generate-checklist``` – генерация чек-листа проверок
-```GET /pages/list``` – список сохранённых страниц
-```DELETE /pages/{name}``` – удалить страницу
+```POST /generate-checklist``` – генерация чек-листа проверок  
+```GET /pages/list``` – список сохранённых страниц  
+```DELETE /pages/{name}``` – удалить страницу  
