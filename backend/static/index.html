@@ -14,11 +14,10 @@
       <div class="flex gap-2">
         <button id="tab-generator-btn" class="px-4 py-2 bg-indigo-500 text-white rounded hover:bg-indigo-600 transition">Генератор</button>
         <button id="tab-library-btn" class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition">Библиотека страниц</button>
-        <button id="tab-checklist-btn" class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition">Чек-лист</button>
       </div>
     </div>
 
-    <!-- Вкладка Генератора -->
+    <!-- Вкладка Генератора (теперь здесь всё) -->
     <div id="tab-generator" class="tab-content">
       <!-- Шаблон -->
       <section>
@@ -44,59 +43,13 @@
         </div>
       </section>
 
-      <!-- Кнопка генерации -->
-      <button id="generate-btn" class="w-full bg-green-600 text-white font-medium py-2 rounded hover:bg-green-700 transition">Сгенерировать тест-кейсы</button>
-      <p id="loading-msg" class="hidden text-center text-gray-500 italic">Генерация...</p>
-
-      <!-- Результат -->
-      <section>
-        <h2 class="text-lg font-semibold mb-2">Результат</h2>
-        <div id="result-container" class="bg-gray-100 rounded p-3 max-h-96 overflow-y-auto">
-          <p class="text-gray-400">Здесь появятся сгенерированные тест-кейсы</p>
-        </div>
-        <button id="copy-btn" class="mt-2 bg-gray-200 text-gray-700 px-4 py-1 rounded hover:bg-gray-300 transition hidden">Скопировать всё в буфер</button>
-      </section>
-    </div>
-
-    <!-- Вкладка Библиотеки страниц (изначально скрыта) -->
-    <div id="tab-library" class="tab-content hidden">
-      <section>
-        <h2 class="text-lg font-semibold mb-4">Загрузить новую страницу</h2>
-        <div class="border rounded p-4 bg-gray-50 space-y-3">
-          <div>
-            <label class="block text-sm font-medium mb-1">Изображение (скриншот)</label>
-            <input type="file" id="page-image" accept="image/*" class="w-full border border-gray-300 rounded px-3 py-2" />
-          </div>
-          <div>
-            <label class="block text-sm font-medium mb-1">Уникальное имя страницы</label>
-            <input type="text" id="page-name" placeholder="Например: Главная после входа" class="w-full border border-gray-300 rounded px-3 py-2" />
-          </div>
-          <button id="upload-btn" class="bg-indigo-500 text-white px-4 py-2 rounded hover:bg-indigo-600 transition w-full">Загрузить и распознать</button>
-          <p id="upload-status" class="text-sm text-gray-500 hidden"></p>
-        </div>
-      </section>
-
-      <section class="mt-6">
-        <h2 class="text-lg font-semibold mb-2">Сохранённые страницы</h2>
-        <div id="pages-list" class="space-y-3">Загрузка...</div>
-      </section>
-    </div>
-
-    <!-- Вкладка Чек-листа (изначально скрыта) -->
-    <div id="tab-checklist" class="tab-content hidden">
-      <section>
-        <h2 class="text-lg font-semibold mb-2">Описание функционала</h2>
-        <textarea id="checklist-task-text" rows="4" placeholder="Вставьте описание фичи, требования или баг-репорт..." class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-300"></textarea>
-        <p class="text-xs text-gray-400 mt-1"><em>Используйте <code>{{Имя страницы}}</code> для подстановки описания из библиотеки.</em></p>
-        <div id="checklist-pages-hint" class="mt-2 p-2 bg-gray-50 rounded text-sm hidden">
-          <p class="font-medium">Доступные страницы:</p>
-          <ul id="checklist-pages-hint-list" class="list-disc ml-5 text-indigo-600"></ul>
-        </div>
-      </section>
-
-      <button id="generate-checklist-btn" class="w-full bg-indigo-600 text-white font-medium py-2 rounded hover:bg-indigo-700 transition">Сформировать чек-лист</button>
+      <!-- Кнопка формирования чек-листа -->
+      <button id="generate-checklist-btn" class="w-full bg-indigo-600 text-white font-medium py-2 rounded hover:bg-indigo-700 transition mt-2">
+        Сформировать чек-лист
+      </button>
       <p id="checklist-loading" class="hidden text-center text-gray-500 italic mt-2">Формирование чек-листа...</p>
 
+      <!-- Блок чек-листа (появляется после генерации) -->
       <div id="checklist-container" class="hidden space-y-4 mt-4">
         <div class="flex flex-wrap justify-between items-center gap-2">
           <h2 class="text-lg font-semibold">Чек-лист проверок</h2>
@@ -127,33 +80,58 @@
           <span class="font-medium">Затронутые области:</span>
           <span id="affected-areas-list"></span>
         </div>
-
-        <button id="generate-from-checklist-btn" class="w-full bg-green-600 text-white font-medium py-2 rounded hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed" disabled>Сгенерировать тест-кейсы по выбранным проверкам</button>
-        <p id="generate-from-checklist-error" class="hidden text-center text-red-500 text-sm">Не выбрано ни одного пункта чек-листа. Отметьте хотя бы одну проверку.</p>
-        <p id="generate-from-checklist-loading" class="hidden text-center text-gray-500 italic">Генерация тест-кейсов...</p>
-
-        <section>
-          <h2 class="text-lg font-semibold mb-2">Результат</h2>
-          <div id="checklist-result-container" class="bg-gray-100 rounded p-3 max-h-96 overflow-y-auto">
-            <p class="text-gray-400">Здесь появятся сгенерированные тест-кейсы</p>
-          </div>
-          <button id="checklist-copy-btn" class="mt-2 bg-gray-200 text-gray-700 px-4 py-1 rounded hover:bg-gray-300 transition hidden">Скопировать всё в буфер</button>
-        </section>
       </div>
+
+      <!-- Кнопка генерации тест-кейсов (основная) -->
+      <button id="generate-btn" class="w-full bg-green-600 text-white font-medium py-2 rounded hover:bg-green-700 transition mt-4">
+        Сгенерировать тест-кейсы
+      </button>
+      <p id="loading-msg" class="hidden text-center text-gray-500 italic">Генерация...</p>
+
+      <!-- Результат -->
+      <section>
+        <h2 class="text-lg font-semibold mb-2">Результат</h2>
+        <div id="result-container" class="bg-gray-100 rounded p-3 max-h-96 overflow-y-auto">
+          <p class="text-gray-400">Здесь появятся сгенерированные тест-кейсы</p>
+        </div>
+        <button id="copy-btn" class="mt-2 bg-gray-200 text-gray-700 px-4 py-1 rounded hover:bg-gray-300 transition hidden">Скопировать всё в буфер</button>
+      </section>
+    </div>
+
+    <!-- Вкладка Библиотеки страниц (без изменений) -->
+    <div id="tab-library" class="tab-content hidden">
+      <section>
+        <h2 class="text-lg font-semibold mb-4">Загрузить новую страницу</h2>
+        <div class="border rounded p-4 bg-gray-50 space-y-3">
+          <div>
+            <label class="block text-sm font-medium mb-1">Изображение (скриншот)</label>
+            <input type="file" id="page-image" accept="image/*" class="w-full border border-gray-300 rounded px-3 py-2" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">Уникальное имя страницы</label>
+            <input type="text" id="page-name" placeholder="Например: Главная после входа" class="w-full border border-gray-300 rounded px-3 py-2" />
+          </div>
+          <button id="upload-btn" class="bg-indigo-500 text-white px-4 py-2 rounded hover:bg-indigo-600 transition w-full">Загрузить и распознать</button>
+          <p id="upload-status" class="text-sm text-gray-500 hidden"></p>
+        </div>
+      </section>
+
+      <section class="mt-6">
+        <h2 class="text-lg font-semibold mb-2">Сохранённые страницы</h2>
+        <div id="pages-list" class="space-y-3">Загрузка...</div>
+      </section>
     </div>
   </div>
 
   <script>
-    // ---------- Общее управление вкладками ----------
+    // ---------- Общее управление вкладками (только две) ----------
     const tabGenerator = document.getElementById('tab-generator');
     const tabLibrary = document.getElementById('tab-library');
-    const tabChecklist = document.getElementById('tab-checklist');
     const btnGenerator = document.getElementById('tab-generator-btn');
     const btnLibrary = document.getElementById('tab-library-btn');
-    const btnChecklist = document.getElementById('tab-checklist-btn');
 
     function activateTabBtn(activeBtn) {
-      [btnGenerator, btnLibrary, btnChecklist].forEach(btn => {
+      [btnGenerator, btnLibrary].forEach(btn => {
         btn.classList.replace('bg-indigo-500', 'bg-gray-200');
         btn.classList.replace('text-white', 'text-gray-700');
       });
@@ -164,25 +142,19 @@
     function switchTab(tab) {
       tabGenerator.classList.add('hidden');
       tabLibrary.classList.add('hidden');
-      tabChecklist.classList.add('hidden');
       if (tab === 'generator') {
         tabGenerator.classList.remove('hidden');
         activateTabBtn(btnGenerator);
-      } else if (tab === 'library') {
+      } else {
         tabLibrary.classList.remove('hidden');
         activateTabBtn(btnLibrary);
         loadPagesList();
-      } else {
-        tabChecklist.classList.remove('hidden');
-        activateTabBtn(btnChecklist);
-        updateChecklistPagesHint();
       }
     }
     btnGenerator.addEventListener('click', () => switchTab('generator'));
     btnLibrary.addEventListener('click', () => switchTab('library'));
-    btnChecklist.addEventListener('click', () => switchTab('checklist'));
 
-    // ---------- Функциональность генератора (без изменений, плюс подсказка страниц) ----------
+    // ---------- Генератор с интегрированным чек-листом ----------
     const defaultFields = ["Название", "Предусловия", "Шаги", "Ожидаемый результат"];
     let fields = [...defaultFields];
     const fieldsContainer = document.getElementById('fields-container');
@@ -195,6 +167,32 @@
     const pagesHint = document.getElementById('pages-hint');
     const pagesHintList = document.getElementById('pages-hint-list');
 
+    // Элементы чек-листа
+    const generateChecklistBtn = document.getElementById('generate-checklist-btn');
+    const checklistLoading = document.getElementById('checklist-loading');
+    const checklistContainer = document.getElementById('checklist-container');
+    const toggleAllBtn = document.getElementById('toggle-all-btn');
+    const affectedAreasDisplay = document.getElementById('affected-areas-display');
+    const affectedAreasList = document.getElementById('affected-areas-list');
+
+    // Состояние чек-листа
+    let checklistData = null;
+    let selectedChecklistIds = new Set();
+
+    // ---------- Вспомогательные функции ----------
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    window.insertPlaceholder = function(placeholder) {
+      const textarea = document.getElementById('task-text');
+      textarea.value = textarea.value + ' ' + placeholder;
+      textarea.focus();
+    };
+
+    // ---------- Управление полями ----------
     function renderFields() {
       fieldsContainer.innerHTML = '';
       fields.forEach((field, index) => {
@@ -218,7 +216,9 @@
       renderFields();
     });
     newFieldInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') document.getElementById('add-field-btn').click(); });
+    renderFields();
 
+    // ---------- Подсказка страниц ----------
     async function updatePagesHint() {
       try {
         const res = await fetch('/pages/list');
@@ -226,11 +226,11 @@
         if (pages.length > 0) {
           pagesHint.classList.remove('hidden');
           pagesHintList.innerHTML = pages.map(p =>
-  `<li class="flex items-center justify-between">
-    <span>{{${p.name}}}</span>
-    <button class="text-xs text-indigo-500 hover:underline" onclick="insertPlaceholder('{{${p.name}}}')">Вставить</button>
-  </li>`
-).join('');
+            `<li class="flex items-center justify-between">
+              <span>{{${p.name}}}</span>
+              <button class="text-xs text-indigo-500 hover:underline" onclick="insertPlaceholder('{{${p.name}}}')">Вставить</button>
+            </li>`
+          ).join('');
         } else {
           pagesHint.classList.add('hidden');
         }
@@ -240,155 +240,7 @@
     }
     updatePagesHint();
 
-    async function generateTestCases() {
-      const text = taskText.value.trim();
-      if (!text) { alert('Введите описание задачи'); return; }
-      loadingMsg.classList.remove('hidden');
-      generateBtn.disabled = true;
-      resultContainer.innerHTML = '';
-      copyBtn.classList.add('hidden');
-      try {
-        const response = await fetch('/generate', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({ task_text: text, fields: fields })
-        });
-        if (!response.ok) {
-          const err = await response.json();
-          throw new Error(err.error || `Ошибка ${response.status}`);
-        }
-        const data = await response.json();
-        if (!data.test_cases || data.test_cases.length === 0) {
-          resultContainer.innerHTML = '<p class="text-gray-500">Модель не вернула тест-кейсы.</p>';
-          return;
-        }
-        let html = '';
-        data.test_cases.forEach((tc, i) => {
-          html += `<div class="mb-4 p-3 bg-white rounded shadow-sm border-l-4 border-indigo-400"><p class="font-medium text-gray-700 mb-1">Тест-кейс #${i+1}</p>`;
-          for (const [key, val] of Object.entries(tc)) {
-            html += `<p class="text-sm"><span class="font-semibold text-gray-600">${key}:</span> ${escapeHtml(String(val))}</p>`;
-          }
-          html += `</div>`;
-        });
-        resultContainer.innerHTML = html;
-        copyBtn.classList.remove('hidden');
-        copyBtn.dataset.json = JSON.stringify(data.test_cases, null, 2);
-      } catch (err) {
-        resultContainer.innerHTML = `<p class="text-red-600">${escapeHtml(err.message)}</p>`;
-      } finally {
-        loadingMsg.classList.add('hidden');
-        generateBtn.disabled = false;
-      }
-    }
-    generateBtn.addEventListener('click', generateTestCases);
-    copyBtn.addEventListener('click', async () => {
-      const json = copyBtn.dataset.json;
-      if (!json) return;
-      try {
-        await navigator.clipboard.writeText(json);
-        alert('JSON скопирован!');
-      } catch { alert('Не удалось скопировать'); }
-    });
-    function escapeHtml(text) { const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
-    // Новая функция лейсхолдерв
-    window.insertPlaceholder = function(placeholder) {
-      const textarea = document.getElementById('task-text');
-      textarea.value = textarea.value + ' ' + placeholder;
-      textarea.focus();
-    };
-    renderFields();
-
-    // ---------- Функциональность библиотеки страниц ----------
-    const uploadBtn = document.getElementById('upload-btn');
-    const uploadStatus = document.getElementById('upload-status');
-    const pageImage = document.getElementById('page-image');
-    const pageName = document.getElementById('page-name');
-    const pagesListDiv = document.getElementById('pages-list');
-
-    async function loadPagesList() {
-      try {
-        const res = await fetch('/pages/list');
-        const pages = await res.json();
-        if (pages.length === 0) {
-          pagesListDiv.innerHTML = '<p class="text-gray-500">Нет загруженных страниц</p>';
-        } else {
-          pagesListDiv.innerHTML = pages.map(p => `
-            <div class="flex items-center justify-between border p-3 rounded bg-white">
-              <div>
-                <p class="font-medium">${escapeHtml(p.name)}</p>
-                <p class="text-sm text-gray-600">${escapeHtml(p.description)}</p>
-              </div>
-              <button onclick="deletePage('${p.name}')" class="text-red-500 hover:text-red-700" title="Удалить">&times;</button>
-            </div>
-          `).join('');
-        }
-        updatePagesHint();
-      } catch (e) {
-        pagesListDiv.innerHTML = '<p class="text-red-500">Ошибка загрузки списка</p>';
-      }
-    }
-
-    async function uploadPage() {
-      const file = pageImage.files[0];
-      const name = pageName.value.trim();
-      if (!file || !name) {
-        alert('Выберите изображение и укажите имя');
-        return;
-      }
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('name', name);
-      uploadStatus.classList.remove('hidden');
-      uploadStatus.textContent = 'Загрузка...';
-      uploadBtn.disabled = true;
-      try {
-        const res = await fetch('/pages/upload', { method: 'POST', body: formData });
-        if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.detail || err.error || 'Ошибка');
-        }
-        uploadStatus.textContent = 'Страница успешно добавлена!';
-        pageName.value = '';
-        pageImage.value = '';
-        loadPagesList();
-      } catch (e) {
-        uploadStatus.textContent = `Ошибка: ${e.message}`;
-      } finally {
-        uploadBtn.disabled = false;
-        setTimeout(() => { uploadStatus.classList.add('hidden'); }, 3000);
-      }
-    }
-
-    window.deletePage = async function(name) {
-      if (!confirm(`Удалить страницу "${name}"?`)) return;
-      try {
-        await fetch(`/pages/${encodeURIComponent(name)}`, { method: 'DELETE' });
-        loadPagesList();
-      } catch (e) {
-        alert('Ошибка удаления');
-      }
-    }
-
-    uploadBtn.addEventListener('click', uploadPage);
-    loadPagesList();
-
-    // ---------- Функциональность чек-листа ----------
-    const checklistTaskText = document.getElementById('checklist-task-text');
-    const generateChecklistBtn = document.getElementById('generate-checklist-btn');
-    const checklistLoading = document.getElementById('checklist-loading');
-    const checklistContainer = document.getElementById('checklist-container');
-    const toggleAllBtn = document.getElementById('toggle-all-btn');
-    const generateFromChecklistBtn = document.getElementById('generate-from-checklist-btn');
-    const generateFromChecklistError = document.getElementById('generate-from-checklist-error');
-    const generateFromChecklistLoading = document.getElementById('generate-from-checklist-loading');
-    const checklistResultContainer = document.getElementById('checklist-result-container');
-    const checklistCopyBtn = document.getElementById('checklist-copy-btn');
-    const affectedAreasDisplay = document.getElementById('affected-areas-display');
-    const affectedAreasList = document.getElementById('affected-areas-list');
-
-    let checklistData = null;
-    let selectedChecklistIds = new Set();
-
+    // ---------- Функции работы с чек-листом ----------
     function getAllChecklistIds() {
       if (!checklistData) return [];
       const ids = [];
@@ -419,41 +271,12 @@
       return group ? group.items.map(item => item.id) : [];
     }
 
-    async function updateChecklistPagesHint() {
-      try {
-        const res = await fetch('/pages/list');
-        const pages = await res.json();
-        const hint = document.getElementById('checklist-pages-hint');
-        const list = document.getElementById('checklist-pages-hint-list');
-        if (pages.length > 0) {
-          hint.classList.remove('hidden');
-          list.innerHTML = pages.map(p =>
-            `<li class="flex items-center justify-between"><span>{{${p.name}}}</span>
-              <button class="text-xs text-indigo-500 hover:underline" onclick="insertChecklistPlaceholder('{{${p.name}}}')">Вставить</button>
-            </li>`
-          ).join('');
-        } else {
-          hint.classList.add('hidden');
-        }
-      } catch(e) {
-        document.getElementById('checklist-pages-hint').classList.add('hidden');
-      }
-    }
-
-    window.insertChecklistPlaceholder = function(placeholder) {
-      checklistTaskText.value = checklistTaskText.value + ' ' + placeholder;
-      checklistTaskText.focus();
-    };
-
     function updateChecklistUI() {
       const allIds = getAllChecklistIds();
       const total = allIds.length;
       const selected = selectedChecklistIds.size;
 
       toggleAllBtn.textContent = selected === total ? 'Снять всё' : 'Выбрать всё';
-
-      generateFromChecklistBtn.disabled = selected === 0;
-      generateFromChecklistError.classList.toggle('hidden', selected !== 0);
 
       for (const cat of ['positive', 'negative']) {
         const colIds = getColumnIds(cat);
@@ -567,6 +390,17 @@
       renderChecklist();
     }
 
+    // События для чек-листа (делегирование)
+    document.addEventListener('change', (e) => {
+      if (e.target.classList.contains('item-checkbox')) {
+        handleItemCheck(e);
+      } else if (e.target.classList.contains('area-toggle')) {
+        handleAreaToggle(e);
+      } else if (e.target.classList.contains('column-toggle')) {
+        handleColumnToggle(e);
+      }
+    });
+
     toggleAllBtn.addEventListener('click', () => {
       const allIds = getAllChecklistIds();
       const allSelected = allIds.length > 0 && allIds.every(id => selectedChecklistIds.has(id));
@@ -578,19 +412,10 @@
       renderChecklist();
     });
 
-    document.addEventListener('change', (e) => {
-      if (e.target.classList.contains('item-checkbox')) {
-        handleItemCheck(e);
-      } else if (e.target.classList.contains('area-toggle')) {
-        handleAreaToggle(e);
-      } else if (e.target.classList.contains('column-toggle')) {
-        handleColumnToggle(e);
-      }
-    });
-
+    // ---------- Генерация чек-листа ----------
     async function generateChecklist() {
-      const text = checklistTaskText.value.trim();
-      if (!text) { alert('Введите описание функционала'); return; }
+      const text = taskText.value.trim();
+      if (!text) { alert('Введите описание задачи'); return; }
       generateChecklistBtn.disabled = true;
       checklistLoading.classList.remove('hidden');
       checklistContainer.classList.add('hidden');
@@ -612,12 +437,9 @@
 
         renderChecklist();
         checklistContainer.classList.remove('hidden');
-        generateFromChecklistError.classList.add('hidden');
-        checklistResultContainer.innerHTML = '<p class="text-gray-400">Здесь появятся сгенерированные тест-кейсы</p>';
-        checklistCopyBtn.classList.add('hidden');
       } catch (err) {
         checklistContainer.classList.add('hidden');
-        checklistResultContainer.innerHTML = `<p class="text-red-600">${escapeHtml(err.message)}</p>`;
+        alert('Ошибка формирования чек-листа: ' + err.message);
       } finally {
         generateChecklistBtn.disabled = false;
         checklistLoading.classList.add('hidden');
@@ -625,55 +447,62 @@
     }
     generateChecklistBtn.addEventListener('click', generateChecklist);
 
-    function getSelectedChecklistItems() {
-      if (!checklistData) return [];
-      const items = [];
-      for (const cat of ['positive', 'negative']) {
-        for (const group of (checklistData[cat] || [])) {
-          for (const item of (group.items || [])) {
-            if (selectedChecklistIds.has(item.id)) {
-              items.push({ id: item.id, text: item.text, category: cat, area: group.area });
+    // ---------- Генерация тест-кейсов (основная) ----------
+    async function generateTestCases() {
+      const text = taskText.value.trim();
+      if (!text) { alert('Введите описание задачи'); return; }
+
+      // Собираем выбранные пункты чек-листа, если они есть
+      let selectedItems = [];
+      if (checklistData && selectedChecklistIds.size > 0) {
+        for (const cat of ['positive', 'negative']) {
+          for (const group of (checklistData[cat] || [])) {
+            for (const item of (group.items || [])) {
+              if (selectedChecklistIds.has(item.id)) {
+                selectedItems.push({
+                  id: item.id,
+                  text: item.text,
+                  category: cat,
+                  area: group.area
+                });
+              }
             }
           }
         }
       }
-      return items;
-    }
 
-    async function generateFromChecklist() {
-      const text = checklistTaskText.value.trim();
-      if (!text) { alert('Введите описание функционала'); return; }
-      const selectedItems = getSelectedChecklistItems();
-      if (selectedItems.length === 0) {
-        generateFromChecklistError.classList.remove('hidden');
-        return;
+      // Если есть выбранные пункты, добавляем поле "Тип"
+      let genFields = [...fields];
+      if (selectedItems.length > 0 && !genFields.includes('Тип')) {
+        genFields.push('Тип');
       }
 
-      let genFields = [...fields];
-      if (!genFields.includes('Тип')) genFields.push('Тип');
-
-      generateFromChecklistBtn.disabled = true;
-      generateFromChecklistLoading.classList.remove('hidden');
-      generateFromChecklistError.classList.add('hidden');
-      checklistResultContainer.innerHTML = '';
+      loadingMsg.classList.remove('hidden');
+      generateBtn.disabled = true;
+      resultContainer.innerHTML = '';
+      copyBtn.classList.add('hidden');
 
       try {
-        const res = await fetch('/generate', {
+        const payload = {
+          task_text: text,
+          fields: genFields
+        };
+        if (selectedItems.length > 0) {
+          payload.checklist_items = selectedItems;
+        }
+
+        const response = await fetch('/generate', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({
-            task_text: text,
-            fields: genFields,
-            checklist_items: selectedItems
-          })
+          body: JSON.stringify(payload)
         });
-        if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.error || `Ошибка ${res.status}`);
+        if (!response.ok) {
+          const err = await response.json();
+          throw new Error(err.error || `Ошибка ${response.status}`);
         }
-        const data = await res.json();
+        const data = await response.json();
         if (!data.test_cases || data.test_cases.length === 0) {
-          checklistResultContainer.innerHTML = '<p class="text-gray-500">Модель не вернула тест-кейсы.</p>';
+          resultContainer.innerHTML = '<p class="text-gray-500">Модель не вернула тест-кейсы.</p>';
           return;
         }
         let html = '';
@@ -684,26 +513,101 @@
           }
           html += `</div>`;
         });
-        checklistResultContainer.innerHTML = html;
-        checklistCopyBtn.classList.remove('hidden');
-        checklistCopyBtn.dataset.json = JSON.stringify(data.test_cases, null, 2);
+        resultContainer.innerHTML = html;
+        copyBtn.classList.remove('hidden');
+        copyBtn.dataset.json = JSON.stringify(data.test_cases, null, 2);
       } catch (err) {
-        checklistResultContainer.innerHTML = `<p class="text-red-600">${escapeHtml(err.message)}</p>`;
+        resultContainer.innerHTML = `<p class="text-red-600">${escapeHtml(err.message)}</p>`;
       } finally {
-        generateFromChecklistBtn.disabled = false;
-        generateFromChecklistLoading.classList.add('hidden');
+        loadingMsg.classList.add('hidden');
+        generateBtn.disabled = false;
       }
     }
-    generateFromChecklistBtn.addEventListener('click', generateFromChecklist);
+    generateBtn.addEventListener('click', generateTestCases);
 
-    checklistCopyBtn.addEventListener('click', async () => {
-      const json = checklistCopyBtn.dataset.json;
+    // ---------- Копирование ----------
+    copyBtn.addEventListener('click', async () => {
+      const json = copyBtn.dataset.json;
       if (!json) return;
       try {
         await navigator.clipboard.writeText(json);
         alert('JSON скопирован!');
       } catch { alert('Не удалось скопировать'); }
     });
+
+    // ---------- Библиотека страниц (без изменений) ----------
+    const uploadBtn = document.getElementById('upload-btn');
+    const uploadStatus = document.getElementById('upload-status');
+    const pageImage = document.getElementById('page-image');
+    const pageName = document.getElementById('page-name');
+    const pagesListDiv = document.getElementById('pages-list');
+
+    async function loadPagesList() {
+      try {
+        const res = await fetch('/pages/list');
+        const pages = await res.json();
+        if (pages.length === 0) {
+          pagesListDiv.innerHTML = '<p class="text-gray-500">Нет загруженных страниц</p>';
+        } else {
+          pagesListDiv.innerHTML = pages.map(p => `
+            <div class="flex items-center justify-between border p-3 rounded bg-white">
+              <div>
+                <p class="font-medium">${escapeHtml(p.name)}</p>
+                <p class="text-sm text-gray-600">${escapeHtml(p.description)}</p>
+              </div>
+              <button onclick="deletePage('${p.name}')" class="text-red-500 hover:text-red-700" title="Удалить">&times;</button>
+            </div>
+          `).join('');
+        }
+        updatePagesHint();
+      } catch (e) {
+        pagesListDiv.innerHTML = '<p class="text-red-500">Ошибка загрузки списка</p>';
+      }
+    }
+
+    async function uploadPage() {
+      const file = pageImage.files[0];
+      const name = pageName.value.trim();
+      if (!file || !name) {
+        alert('Выберите изображение и укажите имя');
+        return;
+      }
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('name', name);
+      uploadStatus.classList.remove('hidden');
+      uploadStatus.textContent = 'Загрузка...';
+      uploadBtn.disabled = true;
+      try {
+        const res = await fetch('/pages/upload', { method: 'POST', body: formData });
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.detail || err.error || 'Ошибка');
+        }
+        uploadStatus.textContent = 'Страница успешно добавлена!';
+        pageName.value = '';
+        pageImage.value = '';
+        loadPagesList();
+      } catch (e) {
+        uploadStatus.textContent = `Ошибка: ${e.message}`;
+      } finally {
+        uploadBtn.disabled = false;
+        setTimeout(() => { uploadStatus.classList.add('hidden'); }, 3000);
+      }
+    }
+
+    window.deletePage = async function(name) {
+      if (!confirm(`Удалить страницу "${name}"?`)) return;
+      try {
+        await fetch(`/pages/${encodeURIComponent(name)}`, { method: 'DELETE' });
+        loadPagesList();
+      } catch (e) {
+        alert('Ошибка удаления');
+      }
+    }
+
+    uploadBtn.addEventListener('click', uploadPage);
+    loadPagesList();
   </script>
 </body>
 </html>
