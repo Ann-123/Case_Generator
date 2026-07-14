@@ -149,9 +149,9 @@ class TestDeletePage:
 
 class TestGenerate:
     @patch("backend.main.client.chat.completions.create", new_callable=AsyncMock)
-    @patch("backend.main.get_page_description")
-    def test_generate_success(self, mock_get_desc, mock_create, client):
-        mock_get_desc.return_value = "описание: кнопка входа, поле email"
+    @patch("backend.main.get_pages_descriptions_batch")
+    def test_generate_success(self, mock_batch, mock_create, client):
+        mock_batch.return_value = [("главная", "описание: кнопка входа, поле email")]
 
         mock_response = MagicMock()
         mock_response.choices = [MagicMock()]
@@ -184,11 +184,11 @@ class TestGenerate:
         assert "кнопку входа" in tc["Шаги"]
 
     @patch("backend.main.client.chat.completions.create", new_callable=AsyncMock)
-    @patch("backend.main.get_page_description")
+    @patch("backend.main.get_pages_descriptions_batch")
     def test_generate_with_placeholder_replacement(
-        self, mock_get_desc, mock_create, client
+        self, mock_batch, mock_create, client
     ):
-        mock_get_desc.return_value = "описание: кнопка 'Войти'"
+        mock_batch.return_value = [("login_page", "описание: кнопка 'Войти'")]
 
         mock_response = MagicMock()
         mock_response.choices = [MagicMock()]
@@ -447,9 +447,9 @@ class TestGenerateChecklist:
 
 class TestGenerateWithChecklist:
     @patch("backend.main.client.chat.completions.create", new_callable=AsyncMock)
-    @patch("backend.main.get_page_description")
-    def test_generate_with_checklist_items(self, mock_get_desc, mock_create, client):
-        mock_get_desc.return_value = "описание: кнопка входа, поле email"
+    @patch("backend.main.get_pages_descriptions_batch")
+    def test_generate_with_checklist_items(self, mock_batch, mock_create, client):
+        mock_batch.return_value = [("login", "описание: кнопка входа, поле email")]
 
         mock_response = MagicMock()
         mock_response.choices = [MagicMock()]

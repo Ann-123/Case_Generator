@@ -1,6 +1,5 @@
 import os
 import base64
-import shutil
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from .database import add_or_update_page, get_all_pages, delete_page, clean_page_name
 from openai import AsyncOpenAI
@@ -27,6 +26,11 @@ async def upload_page(
     if not name or not name.strip():
         raise HTTPException(400, "Имя страницы обязательно")
 
+    MAX_UPLOAD_SIZE = 10 * 1024 * 1024  # 10 MB
+    contents = await file.read()
+    if len(contents) > MAX_UPLOAD_SIZE:
+        raise HTTPException(413, "Файл слишком большой (макс. 10MB)")
+
     name = clean_page_name(name)
     if not name:
         raise HTTPException(400, "Имя страницы не должно быть пустым после очистки")
@@ -36,7 +40,7 @@ async def upload_page(
     file_path = os.path.join(UPLOAD_DIR, filename)
 
     with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+        buffer.write(contents)
 
     # Читаем и кодируем в base64
     with open(file_path, "rb") as f:

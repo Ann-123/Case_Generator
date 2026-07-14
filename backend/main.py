@@ -40,7 +40,7 @@ VISION_MODEL = os.getenv("VISION_MODEL", "pixtral-12b-2409")
 client = AsyncOpenAI(api_key=api_key, base_url=base_url)
 
 # ----------- Инициализация БД страниц ----------
-from .database import init_db, get_page_description, get_all_pages
+from .database import init_db, get_page_description, get_all_pages, get_pages_descriptions_batch
 
 
 @asynccontextmanager
@@ -136,10 +136,17 @@ def replace_placeholders(text: str) -> str:
     Заменяет {{Имя страницы}} на полное описание из БД.
     Если описание не найдено, оставляет плейсхолдер без изменений.
     """
+    names = re.findall(r"\{\{(.+?)\}\}", text)
+    if not names:
+        return text
+
+    unique_names = list(set(n.strip() for n in names))
+    cache = {name: desc for name, desc in get_pages_descriptions_batch(unique_names)}
 
     def replacer(match):
         name = match.group(1).strip()
-        desc = get_page_description(name)
+        from .database import clean_page_name
+        desc = cache.get(clean_page_name(name))
         if desc is not None:
             logger.info("Подставлена страница '%s': %s...", name, desc[:50])
             return f"\n--- Описание страницы '{name}' ---\n{desc}\n---"
@@ -154,6 +161,44 @@ def replace_placeholders(text: str) -> str:
 
 
 # ----------- Промпт для генерации чек-листа загружается из файла ----------
+
+
+# ----------- Парсинг JSON от LLM ----------
+
+def extract_json_list(raw_content: str, expected_key: str = "test_cases") -> tuple[Optional[list], Optional[str]]:
+    try:
+        parsed = json.loads(raw_content)
+    except json.JSONDecodeError:
+        return None, "Ответ модели не является валидным JSON"
+
+    if isinstance(parsed, list):
+        return parsed, None
+    if isinstance(parsed, dict):
+        if expected_key in parsed and isinstance(parsed[expected_key], list):
+            return parsed[expected_key], None
+        for val in parsed.values():
+            if isinstance(val, list):
+                return val, None
+    return None, f"Ключ '{expected_key}' не найден"
+
+
+def extract_checklist_structure(raw_content: str) -> tuple[Optional[dict], Optional[str]]:
+    try:
+        parsed = json.loads(raw_content)
+    except json.JSONDecodeError:
+        return None, "Ответ модели не является валидным JSON"
+
+    if not isinstance(parsed, dict):
+        return None, "Ответ модели не является JSON-объектом"
+
+    if "checklist" in parsed and isinstance(parsed["checklist"], dict):
+        return parsed["checklist"], None
+    if "positive" in parsed or "negative" in parsed:
+        return parsed, None
+    for val in parsed.values():
+        if isinstance(val, dict) and ("positive" in val or "negative" in val):
+            return val, None
+    return None, "Не удалось найти структуру чек-листа в ответе модели"
 
 
 # ----------- Эндпоинт генерации чек-листа ----------
@@ -177,36 +222,11 @@ async def generate_checklist(req: GenerateChecklistRequest):
         )
         raw_content = response.choices[0].message.content.strip()
 
-        try:
-            parsed = json.loads(raw_content)
-        except json.JSONDecodeError:
+        checklist, error = extract_checklist_structure(raw_content)
+        if error:
             return JSONResponse(
                 status_code=500,
-                content={
-                    "error": "Ответ модели не является валидным JSON",
-                    "raw_response": raw_content,
-                },
-            )
-
-        checklist = None
-        if isinstance(parsed, dict) and "checklist" in parsed:
-            checklist = parsed["checklist"]
-        elif isinstance(parsed, dict):
-            if "positive" in parsed or "negative" in parsed:
-                checklist = parsed
-            else:
-                for key, val in parsed.items():
-                    if isinstance(val, dict) and ("positive" in val or "negative" in val):
-                        checklist = val
-                        break
-
-        if checklist is None:
-            return JSONResponse(
-                status_code=500,
-                content={
-                    "error": "Не удалось найти структуру чек-листа в ответе модели",
-                    "raw_response": raw_content,
-                },
+                content={"error": error, "raw_response": raw_content},
             )
 
         for key in ["positive", "negative"]:
@@ -301,43 +321,11 @@ async def generate_test_cases(req: GenerateRequest):
         )
         raw_content = response.choices[0].message.content.strip()
 
-        # Парсим JSON
-        try:
-            parsed = json.loads(raw_content)
-        except json.JSONDecodeError:
+        test_cases_data, error = extract_json_list(raw_content, "test_cases")
+        if error:
             return JSONResponse(
                 status_code=500,
-                content={
-                    "error": "Ответ модели не является валидным JSON",
-                    "raw_response": raw_content,
-                },
-            )
-
-        # Извлекаем массив тест-кейсов из любого формата
-        test_cases_data = None
-        if isinstance(parsed, list):
-            test_cases_data = parsed
-            logger.info("Модель вернула массив без обёртки")
-        elif isinstance(parsed, dict):
-            if "test_cases" in parsed and isinstance(parsed["test_cases"], list):
-                test_cases_data = parsed["test_cases"]
-            else:
-                # Ищем первый попавшийся список в значениях словаря
-                for key, val in parsed.items():
-                    if isinstance(val, list):
-                        test_cases_data = val
-                        logger.warning(
-                            f"Ключ 'test_cases' отсутствует, использован '{key}'"
-                        )
-                        break
-
-        if test_cases_data is None:
-            return JSONResponse(
-                status_code=500,
-                content={
-                    "error": "Не удалось найти массив тест-кейсов в ответе модели",
-                    "raw_response": raw_content,
-                },
+                content={"error": error, "raw_response": raw_content},
             )
 
         # Валидируем каждый кейс индивидуально, пропуская невалидные

@@ -71,6 +71,21 @@ def get_page_description(name: str) -> str | None:
         return row[0]
     return None
 
+def get_pages_descriptions_batch(names: list[str]) -> list[tuple[str, str]]:
+    if not names:
+        return []
+    cleaned = [clean_page_name(n) for n in names]
+    placeholders = ','.join(['?'] * len(cleaned))
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.execute(
+        f"SELECT name, description FROM pages WHERE name IN ({placeholders})",
+        cleaned
+    )
+    result = cursor.fetchall()
+    conn.close()
+    return result
+
+
 def delete_page(name: str) -> bool:
     name = clean_page_name(name)
     conn = sqlite3.connect(DB_PATH)

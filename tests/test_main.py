@@ -82,85 +82,83 @@ class TestGenerateRequest:
 
 
 class TestReplacePlaceholders:
-    @patch("backend.main.get_page_description")
-    def test_replaces_single_placeholder(self, mock_get_desc):
-        mock_get_desc.return_value = "описание: кнопка входа, поле email"
+    @patch("backend.main.get_pages_descriptions_batch")
+    def test_replaces_single_placeholder(self, mock_batch):
+        mock_batch.return_value = [("главная", "описание: кнопка входа, поле email")]
         result = replace_placeholders("Тест {{главная}} страницы")
         assert "--- Описание страницы 'главная' ---" in result
         assert "описание: кнопка входа, поле email" in result
         assert "{{главная}}" not in result
-        mock_get_desc.assert_called_once_with("главная")
+        mock_batch.assert_called_once_with(["главная"])
 
-    @patch("backend.main.get_page_description")
-    def test_multiple_placeholders(self, mock_get_desc):
-        mock_get_desc.side_effect = ["описание A", "описание B"]
+    @patch("backend.main.get_pages_descriptions_batch")
+    def test_multiple_placeholders(self, mock_batch):
+        mock_batch.return_value = [("a", "описание A"), ("b", "описание B")]
         result = replace_placeholders("{{A}} и {{B}}")
         assert result.count("--- Описание страницы") == 2
-        assert mock_get_desc.call_count == 2
+        assert mock_batch.call_count == 1
         assert "описание A" in result
         assert "описание B" in result
 
-    @patch("backend.main.get_page_description")
-    def test_no_placeholder(self, mock_get_desc):
+    def test_no_placeholder(self):
         result = replace_placeholders("Просто текст без плейсхолдеров")
         assert result == "Просто текст без плейсхолдеров"
-        mock_get_desc.assert_not_called()
 
-    @patch("backend.main.get_page_description")
+    @patch("backend.main.get_pages_descriptions_batch")
     @patch("backend.main.get_all_pages")
-    def test_placeholder_not_found_keeps_original(self, mock_get_all, mock_get_desc):
-        mock_get_desc.return_value = None
+    def test_placeholder_not_found_keeps_original(self, mock_get_all, mock_batch):
+        mock_batch.return_value = []
         mock_get_all.return_value = [{"name": "другая", "description": "desc"}]
         result = replace_placeholders("Тест {{неизвестная}} страницы")
         assert "{{неизвестная}}" in result
         assert "--- Описание страницы" not in result
-        mock_get_desc.assert_called_once_with("неизвестная")
+        mock_batch.assert_called_once_with(["неизвестная"])
         mock_get_all.assert_called_once()
 
-    @patch("backend.main.get_page_description")
-    def test_empty_description(self, mock_get_desc):
-        mock_get_desc.return_value = ""
+    @patch("backend.main.get_pages_descriptions_batch")
+    def test_empty_description(self, mock_batch):
+        mock_batch.return_value = [("пусто", "")]
         result = replace_placeholders("Тест {{пусто}}")
         assert "--- Описание страницы 'пусто' ---" in result
         assert "\n---\n" in result or result.endswith("\n---")
         expected = "\n--- Описание страницы 'пусто' ---\n\n---"
         assert expected in result
 
-    @patch("backend.main.get_page_description")
-    def test_placeholder_at_start(self, mock_get_desc):
-        mock_get_desc.return_value = "desc"
+    @patch("backend.main.get_pages_descriptions_batch")
+    def test_placeholder_at_start(self, mock_batch):
+        mock_batch.return_value = [("start", "desc")]
         result = replace_placeholders("{{start}} in text")
         lines = [l for l in result.split("\n") if l.strip()]
         assert any("Описание страницы" in l for l in lines)
 
-    @patch("backend.main.get_page_description")
-    def test_placeholder_at_end(self, mock_get_desc):
-        mock_get_desc.return_value = "desc"
+    @patch("backend.main.get_pages_descriptions_batch")
+    def test_placeholder_at_end(self, mock_batch):
+        mock_batch.return_value = [("end", "desc")]
         result = replace_placeholders("text {{end}}")
         assert "Описание страницы 'end'" in result
 
-    @patch("backend.main.get_page_description")
-    def test_multiple_placeholders_same_name(self, mock_get_desc):
-        mock_get_desc.return_value = "same desc"
+    @patch("backend.main.get_pages_descriptions_batch")
+    def test_multiple_placeholders_same_name(self, mock_batch):
+        mock_batch.return_value = [("x", "same desc")]
         result = replace_placeholders("{{x}} и {{x}}")
         assert result.count("Описание страницы 'x'") == 2
-        assert mock_get_desc.call_count == 2
+        assert mock_batch.call_count == 1
 
-    @patch("backend.main.get_page_description")
-    def test_whitespace_in_placeholder(self, mock_get_desc):
-        mock_get_desc.return_value = "desc"
+    @patch("backend.main.get_pages_descriptions_batch")
+    def test_whitespace_in_placeholder(self, mock_batch):
+        mock_batch.return_value = [("spaced", "desc")]
         replace_placeholders("{{  spaced  }}")
-        mock_get_desc.assert_called_once_with("spaced")
+        mock_batch.assert_called_once_with(["spaced"])
 
-    @patch("backend.main.get_page_description")
-    def test_description_with_special_chars(self, mock_get_desc):
-        mock_get_desc.return_value = 'описание: кнопка "Войти", поле "Email"'
+    @patch("backend.main.get_pages_descriptions_batch")
+    def test_description_with_special_chars(self, mock_batch):
+        mock_batch.return_value = [("page", 'описание: кнопка "Войти", поле "Email"')]
         result = replace_placeholders("{{page}}")
         assert 'кнопка "Войти"' in result
 
-    @patch("backend.main.get_page_description")
-    def test_unicode_page_name(self, mock_get_desc):
-        mock_get_desc.return_value = "俄语描述"
+    @patch("backend.main.get_pages_descriptions_batch")
+    def test_unicode_page_name(self, mock_batch):
+        mock_batch.return_value = [("русский", "俄语描述")]
         result = replace_placeholders("{{русский}} тест")
         assert "Описание страницы 'русский'" in result
         assert "俄语描述" in result
