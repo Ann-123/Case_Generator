@@ -6,6 +6,8 @@ import re
 logger = logging.getLogger(__name__)
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "pages.db")
+UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "static", "uploads")
+UPLOAD_DIR = os.path.realpath(UPLOAD_DIR)
 
 def init_db():
     conn = sqlite3.connect(DB_PATH)
@@ -29,23 +31,28 @@ def clean_page_name(raw_name: str) -> str:
     return cleaned.lower()
 
 def add_or_update_page(name: str, image_path: str, description: str):
-    name = clean_page_name(name)  # очищаем перед записью
+    name = clean_page_name(name)
     conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    # Удаляем старый файл если есть
-    old = c.execute("SELECT image_path FROM pages WHERE name = ?", (name,)).fetchone()
-    if old and os.path.exists(old[0]):
-        try:
-            os.remove(old[0])
-        except OSError:
-            pass
-    c.execute("""
-        INSERT OR REPLACE INTO pages (name, image_path, description, created_at)
-        VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-    """, (name, image_path, description))
-    conn.commit()
+    row = conn.execute("SELECT image_path FROM pages WHERE name = ?", (name,)).fetchone()
+    if row:
+        file_path = os.path.realpath(row[0])  # реальный путь
+        # Проверяем, что файл находится внутри UPLOAD_DIR
+        if os.path.commonpath([file_path, UPLOAD_DIR]) != UPLOAD_DIR:
+            conn.close()
+            logger.error(f"Попытка удаления файла вне UPLOAD_DIR: {file_path}")
+            return False  # или выбросить исключение
+
+        if os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+            except OSError as e:
+                logger.error(f"Не удалось удалить файл {file_path}: {e}")
+        conn.execute("DELETE FROM pages WHERE name = ?", (name,))
+        conn.commit()
+        conn.close()
+        return True
     conn.close()
-    logger.info(f"Page '{name}' saved with description: {description[:500]}...")
+    return False
 
 def get_all_pages():
     conn = sqlite3.connect(DB_PATH)
@@ -91,15 +98,21 @@ def delete_page(name: str) -> bool:
     conn = sqlite3.connect(DB_PATH)
     row = conn.execute("SELECT image_path FROM pages WHERE name = ?", (name,)).fetchone()
     if row:
-        if os.path.exists(row[0]):
+        file_path = os.path.realpath(row[0])  # реальный путь
+        # Проверяем, что файл находится внутри UPLOAD_DIR
+        if os.path.commonpath([file_path, UPLOAD_DIR]) != UPLOAD_DIR:
+            conn.close()
+            logger.error(f"Попытка удаления файла вне UPLOAD_DIR: {file_path}")
+            return False  # или выбросить исключение
+
+        if os.path.exists(file_path):
             try:
-                os.remove(row[0])
-            except OSError:
-                pass
+                os.remove(file_path)
+            except OSError as e:
+                logger.error(f"Не удалось удалить файл {file_path}: {e}")
         conn.execute("DELETE FROM pages WHERE name = ?", (name,))
         conn.commit()
         conn.close()
-        logger.info(f"Page '{name}' deleted")
         return True
     conn.close()
     return False

@@ -1,10 +1,13 @@
 import os
 import base64
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
 from .database import add_or_update_page, get_all_pages, delete_page, clean_page_name
 from openai import AsyncOpenAI
 import logging
 import re
+from .auth import verify_api_key
+import magic
+
 
 logger = logging.getLogger(__name__)
 
@@ -16,21 +19,30 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 # Импортируем глобальный клиент из main
 from .main import client, VISION_MODEL
 
+ALLOWED_MIME_TYPES = {"image/png", "image/jpeg"}
+
 @router.post("/upload")
 async def upload_page(
-    file: UploadFile = File(...),
-    name: str = Form("")
+        file: UploadFile = File(...),
+        name: str = Form(""),
+        api_key: str = Depends(verify_api_key)
 ):
-    if not file.content_type or not file.content_type.startswith("image/"):
-        raise HTTPException(400, "Файл должен быть изображением")
     if not name or not name.strip():
         raise HTTPException(400, "Имя страницы обязательно")
 
-    MAX_UPLOAD_SIZE = 10 * 1024 * 1024  # 10 MB
-    contents = await file.read()
+    # Читаем первые 2048 байт для определения MIME
+    chunk = await file.read(2048)
+    mime_type = magic.from_buffer(chunk, mime=True)
+
+    if mime_type not in ALLOWED_MIME_TYPES:
+        raise HTTPException(400, f"Неподдерживаемый формат файла: {mime_type}")
+
+    # Дальше читаем остаток файла и собираем в bytes
+    contents = chunk + await file.read()
+
+    MAX_UPLOAD_SIZE = 10 * 1024 * 1024
     if len(contents) > MAX_UPLOAD_SIZE:
         raise HTTPException(413, "Файл слишком большой (макс. 10MB)")
-
     name = clean_page_name(name)
     if not name:
         raise HTTPException(400, "Имя страницы не должно быть пустым после очистки")

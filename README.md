@@ -102,7 +102,7 @@ VISION_MODEL=pixtral-12b-2409   # модель для распознавания
 ```
 ### 3. Установите зависимости
 ```
-python -m venv venv
+python3 -m venv venv
 source venv/bin/activate      # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```

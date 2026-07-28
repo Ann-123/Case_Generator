@@ -12,12 +12,15 @@ from contextlib import asynccontextmanager
 from typing import List, Optional, Union
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse, RedirectResponse
 from openai import AsyncOpenAI
 from pydantic import BaseModel, Field, create_model, ValidationError
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 # ----------- Загрузка конфигурации ----------
 env_path = Path(__file__).resolve().parent.parent / ".env"
@@ -54,14 +57,24 @@ async def lifespan(app: FastAPI):
 
 # ----------- FastAPI приложение ----------
 app = FastAPI(title="QA Case Generator MVP + Pages", lifespan=lifespan)
+
+# Rate limiter
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# CORS (настройте origins под свои нужды)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],   # ← замените на конкретные домены в production
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "DELETE"],
     allow_headers=["*"],
 )
 app.mount("/static", StaticFiles(directory="backend/static"), name="static")
+
+# ----------- Аутентификация ----------
+from .auth import verify_api_key
 
 # ----------- Роутеры ----------
 from .pages import router as pages_router
@@ -90,7 +103,6 @@ class GenerateChecklistRequest(BaseModel):
 def build_dynamic_test_case_model(fields: List[str]) -> BaseModel:
     field_defs = {}
     for idx, name in enumerate(fields):
-        # Разрешаем строку или список строк
         field_defs[f"field_{idx}"] = (
             Optional[Union[str, List[str]]],
             Field(default=None, alias=name),
@@ -104,7 +116,6 @@ def build_dynamic_test_case_model(fields: List[str]) -> BaseModel:
 logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s: %(message)s")
 logger = logging.getLogger(__name__)
 
-# ----------- Загрузка скилла (промпта) для генерации тест-кейсов ----------
 SKILLS_DIR = Path(__file__).resolve().parent / "prompts"
 
 def load_test_case_prompt() -> str:
@@ -132,10 +143,6 @@ CHECKLIST_SKILL_PROMPT = load_checklist_prompt()
 
 
 def replace_placeholders(text: str) -> str:
-    """
-    Заменяет {{Имя страницы}} на полное описание из БД.
-    Если описание не найдено, оставляет плейсхолдер без изменений.
-    """
     names = re.findall(r"\{\{(.+?)\}\}", text)
     if not names:
         return text
@@ -159,11 +166,6 @@ def replace_placeholders(text: str) -> str:
 
     return re.sub(r"\{\{(.+?)\}\}", replacer, text)
 
-
-# ----------- Промпт для генерации чек-листа загружается из файла ----------
-
-
-# ----------- Парсинг JSON от LLM ----------
 
 def extract_json_list(raw_content: str, expected_key: str = "test_cases") -> tuple[Optional[list], Optional[str]]:
     try:
@@ -201,11 +203,29 @@ def extract_checklist_structure(raw_content: str) -> tuple[Optional[dict], Optio
     return None, "Не удалось найти структуру чек-листа в ответе модели"
 
 
+# ----------- Глобальные обработчики ошибок ----------
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"error": exc.detail, "type": "http_error"}
+    )
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Необработанная ошибка: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"error": "Внутренняя ошибка сервера", "type": "internal_error"}
+    )
+
+
 # ----------- Эндпоинт генерации чек-листа ----------
 @app.post("/generate-checklist")
-async def generate_checklist(req: GenerateChecklistRequest):
+@limiter.limit("10/minute")
+async def generate_checklist(req: GenerateChecklistRequest, request: Request, api_key: str = Depends(verify_api_key)):
     if not req.task_text.strip():
-        return JSONResponse(status_code=400, content={"error": "Текст задачи пуст"})
+        raise HTTPException(status_code=400, detail="Текст задачи пуст")
 
     processed_task = replace_placeholders(req.task_text)
 
@@ -224,10 +244,7 @@ async def generate_checklist(req: GenerateChecklistRequest):
 
         checklist, error = extract_checklist_structure(raw_content)
         if error:
-            return JSONResponse(
-                status_code=500,
-                content={"error": error, "raw_response": raw_content},
-            )
+            raise HTTPException(status_code=500, detail=f"Ошибка парсинга чек-листа: {error}")
 
         for key in ["positive", "negative"]:
             if key not in checklist or not isinstance(checklist[key], list):
@@ -237,26 +254,24 @@ async def generate_checklist(req: GenerateChecklistRequest):
 
         return {"checklist": checklist}
 
+    except HTTPException:
+        raise
     except Exception as e:
-        traceback.print_exc()
-        return JSONResponse(status_code=500, content={"error": f"Ошибка: {str(e)}"})
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail="Ошибка при генерации чек-листа")
 
 
 # ----------- Основной эндпоинт генерации ----------
 @app.post("/generate")
-async def generate_test_cases(req: GenerateRequest):
+@limiter.limit("10/minute")
+async def generate_test_cases(req: GenerateRequest, request: Request, api_key: str = Depends(verify_api_key)):
     if not req.task_text.strip():
-        return JSONResponse(status_code=400, content={"error": "Текст задачи пуст"})
+        raise HTTPException(status_code=400, detail="Текст задачи пуст")
     if not req.fields:
-        return JSONResponse(
-            status_code=400, content={"error": "Список полей шаблона пуст"}
-        )
+        raise HTTPException(status_code=400, detail="Список полей шаблона пуст")
     if len(req.fields) != len(set(req.fields)):
-        return JSONResponse(
-            status_code=400, content={"error": "Названия полей должны быть уникальными"}
-        )
+        raise HTTPException(status_code=400, detail="Названия полей должны быть уникальными")
 
-    # Подстановка описаний страниц
     processed_task = replace_placeholders(req.task_text)
 
     active_fields = list(req.fields)
@@ -302,9 +317,7 @@ async def generate_test_cases(req: GenerateRequest):
             lines.append("")
         checklist_context = "\n".join(lines)
 
-        user_prompt = (
-            f"Описание задачи:\n{processed_task}\n\n{checklist_context}"
-        )
+        user_prompt = f"Описание задачи:\n{processed_task}\n\n{checklist_context}"
     else:
         user_prompt = f"Описание задачи:\n{processed_task}"
 
@@ -323,17 +336,12 @@ async def generate_test_cases(req: GenerateRequest):
 
         test_cases_data, error = extract_json_list(raw_content, "test_cases")
         if error:
-            return JSONResponse(
-                status_code=500,
-                content={"error": error, "raw_response": raw_content},
-            )
+            raise HTTPException(status_code=500, detail=f"Ошибка парсинга ответа: {error}")
 
-        # Валидируем каждый кейс индивидуально, пропуская невалидные
         valid_cases = []
         for idx, case in enumerate(test_cases_data):
             try:
                 validated = TestCaseModel.model_validate(case)
-                # Преобразуем поля-списки в строки
                 case_dict = {}
                 for field_name, alias in zip(
                     [f"field_{i}" for i in range(len(active_fields))], active_fields
@@ -348,19 +356,15 @@ async def generate_test_cases(req: GenerateRequest):
                 logger.warning(f"Тест-кейс #{idx + 1} пропущен: {e}")
 
         if not valid_cases:
-            return JSONResponse(
-                status_code=422,
-                content={
-                    "error": "Ни один тест-кейс не прошёл валидацию",
-                    "raw_response": raw_content,
-                },
-            )
+            raise HTTPException(status_code=422, detail="Ни один тест-кейс не прошёл валидацию")
 
         return {"test_cases": valid_cases}
 
+    except HTTPException:
+        raise
     except Exception as e:
-        traceback.print_exc()
-        return JSONResponse(status_code=500, content={"error": f"Ошибка: {str(e)}"})
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail="Ошибка при генерации тест-кейсов")
 
 
 # ----------- Отдача фронтенда ----------
