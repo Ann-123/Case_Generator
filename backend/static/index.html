@@ -19,6 +19,13 @@
 
     <!-- Вкладка Генератора (теперь здесь всё) -->
     <div id="tab-generator" class="tab-content">
+      <!-- API ключ -->
+      <section class="bg-yellow-50 border border-yellow-200 rounded p-3">
+        <label class="block text-sm font-medium text-yellow-800 mb-1">API ключ (X-API-Key)</label>
+        <input type="password" id="api-key-input" placeholder="Введите API ключ" class="w-full border border-yellow-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-yellow-300" />
+        <p class="text-xs text-yellow-700 mt-1">Сохраняется только в памяти вкладки. Запросите ключ у администратора или задайте в <code>.env</code> (API_KEY).</p>
+      </section>
+
       <!-- Шаблон -->
       <section>
         <h2 class="text-lg font-semibold mb-2">Шаблон тест-кейса</h2>
@@ -178,6 +185,22 @@
     // Состояние чек-листа
     let checklistData = null;
     let selectedChecklistIds = new Set();
+
+    // API ключ
+    const apiKeyInput = document.getElementById('api-key-input');
+    apiKeyInput.value = sessionStorage.getItem('apiKey') || '';
+    apiKeyInput.addEventListener('input', () => {
+      sessionStorage.setItem('apiKey', apiKeyInput.value.trim());
+    });
+    function getApiKey() {
+      return apiKeyInput.value.trim();
+    }
+    function authHeaders(extra = {}) {
+      const headers = { ...extra };
+      const key = getApiKey();
+      if (key) headers['X-API-Key'] = key;
+      return headers;
+    }
 
     // ---------- Вспомогательные функции ----------
     function escapeHtml(text) {
@@ -416,13 +439,15 @@
     async function generateChecklist() {
       const text = taskText.value.trim();
       if (!text) { alert('Введите описание задачи'); return; }
+      const key = getApiKey();
+      if (!key) { alert('Введите API ключ в поле выше'); apiKeyInput.focus(); return; }
       generateChecklistBtn.disabled = true;
       checklistLoading.classList.remove('hidden');
       checklistContainer.classList.add('hidden');
       try {
         const res = await fetch('/generate-checklist', {
           method: 'POST',
-          headers: {'Content-Type': 'application/json'},
+          headers: authHeaders({'Content-Type': 'application/json'}),
           body: JSON.stringify({ task_text: text })
         });
         if (!res.ok) {
@@ -451,6 +476,8 @@
     async function generateTestCases() {
       const text = taskText.value.trim();
       if (!text) { alert('Введите описание задачи'); return; }
+      const key = getApiKey();
+      if (!key) { alert('Введите API ключ в поле выше'); apiKeyInput.focus(); return; }
 
       // Собираем выбранные пункты чек-листа, если они есть
       let selectedItems = [];
@@ -493,7 +520,7 @@
 
         const response = await fetch('/generate', {
           method: 'POST',
-          headers: {'Content-Type': 'application/json'},
+          headers: authHeaders({'Content-Type': 'application/json'}),
           body: JSON.stringify(payload)
         });
         if (!response.ok) {
@@ -579,7 +606,13 @@
       uploadStatus.textContent = 'Загрузка...';
       uploadBtn.disabled = true;
       try {
-        const res = await fetch('/pages/upload', { method: 'POST', body: formData });
+        const key = getApiKey();
+        if (!key) { alert('Введите API ключ в поле выше'); apiKeyInput.focus(); return; }
+        const res = await fetch('/pages/upload', {
+          method: 'POST',
+          headers: authHeaders(),
+          body: formData
+        });
         if (!res.ok) {
           const err = await res.json();
           throw new Error(err.detail || err.error || 'Ошибка');

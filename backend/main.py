@@ -241,6 +241,7 @@ async def generate_checklist(req: GenerateChecklistRequest, request: Request, ap
             response_format={"type": "json_object"},
         )
         raw_content = response.choices[0].message.content.strip()
+        logger.info("Сырой ответ чек-листа: %s", raw_content[:1000])
 
         checklist, error = extract_checklist_structure(raw_content)
         if error:
@@ -282,13 +283,32 @@ async def generate_test_cases(req: GenerateRequest, request: Request, api_key: s
     TestCaseModel = build_dynamic_test_case_model(active_fields)
     fields_list = ", ".join(active_fields)
 
+    # Генерируем пример с актуальными названиями полей
+    example_fields = {name: f"<значение поля '{name}'>" for name in active_fields}
+    example_fields[active_fields[0]] = "Успешная отправка формы обратной связи"
+    if len(active_fields) > 1:
+        example_fields[active_fields[1]] = "Пользователь на странице 'Контакты'. Все поля формы пусты."
+    if len(active_fields) > 2:
+        example_fields[active_fields[2]] = ["Ввести в поле 'Имя' значение 'Иван'", "Нажать кнопку 'Отправить'"]
+    if len(active_fields) > 3:
+        example_fields[active_fields[3]] = "Появляется сообщение 'Сообщение отправлено'. Форма очищается."
+    if "Тип" in active_fields:
+        example_fields["Тип"] = "Позитивный"
+    example_json = json.dumps({"test_cases": [example_fields]}, ensure_ascii=False, indent=2)
+
     system_prompt = (
-        f"{TEST_CASE_SKILL_PROMPT}\n\n"
-        "## Поля тест-кейсов\n"
+        "## Поля тест-кейсов\n\n"
         "Ответ должен быть JSON-объектом с единственным ключом 'test_cases'. "
-        "Значение 'test_cases' — массив объектов. Каждый объект содержит ТОЛЬКО указанные поля: "
-        f"{fields_list}. "
-        "Не добавляй других ключей. Оберни ответ в чистый JSON, без markdown-разметки."
+        "Значение 'test_cases' — массив объектов.\n\n"
+        "Каждый объект тест-кейса содержит ТОЛЬКО указанные поля. "
+        "НЕ ИСПОЛЬЗУЙ поля id, title, precondition, steps, expected_result, type, checklist_item_id, "
+        "если они не входят в список ниже. "
+        "Каждое поле должно быть заполнено строкой или массивом строк (не null, не пустая строка).\n\n"
+        f"Обязательные поля: {fields_list}.\n\n"
+        "Пример правильного объекта (используй ИМЕННО ЭТИ названия полей):\n"
+        f"{example_json}\n\n"
+        f"{TEST_CASE_SKILL_PROMPT}\n\n"
+        "Оберни ответ в чистый JSON, без markdown-разметки."
     )
 
     if req.checklist_items:
@@ -333,13 +353,16 @@ async def generate_test_cases(req: GenerateRequest, request: Request, api_key: s
             response_format={"type": "json_object"},
         )
         raw_content = response.choices[0].message.content.strip()
+        logger.info("Сырой ответ генерации: %s", raw_content[:1000])
 
         test_cases_data, error = extract_json_list(raw_content, "test_cases")
         if error:
             raise HTTPException(status_code=500, detail=f"Ошибка парсинга ответа: {error}")
 
+        logger.info("Ожидаемые поля: %s", active_fields)
         valid_cases = []
         for idx, case in enumerate(test_cases_data):
+            logger.info("Сырой тест-кейс #%d: %s", idx + 1, json.dumps(case, ensure_ascii=False))
             try:
                 validated = TestCaseModel.model_validate(case)
                 case_dict = {}
@@ -351,9 +374,10 @@ async def generate_test_cases(req: GenerateRequest, request: Request, api_key: s
                         case_dict[alias] = "\n".join(str(v) for v in value)
                     else:
                         case_dict[alias] = value
+                logger.info("Валидный тест-кейс #%d: %s", idx + 1, json.dumps(case_dict, ensure_ascii=False))
                 valid_cases.append(case_dict)
             except ValidationError as e:
-                logger.warning(f"Тест-кейс #{idx + 1} пропущен: {e}")
+                logger.warning("Тест-кейс #%d пропущен: %s", idx + 1, e)
 
         if not valid_cases:
             raise HTTPException(status_code=422, detail="Ни один тест-кейс не прошёл валидацию")
