@@ -7,35 +7,35 @@
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-50 min-h-screen p-6 flex flex-col items-center">
-  <div class="max-w-3xl w-full bg-white rounded-xl shadow p-6 space-y-6">
-    <!-- Заголовок и вкладки -->
-    <div class="flex justify-between items-center border-b pb-4">
+  <div class="max-w-7xl w-full bg-white rounded-xl shadow p-6 space-y-6">
+    <!-- Верхняя строка: заголовок слева, авторизация и вкладки справа -->
+    <div class="flex flex-col md:flex-row md:justify-between md:items-start gap-4 border-b pb-4">
       <h1 class="text-2xl font-bold text-gray-800">QA Test Case Generator</h1>
-      <div class="flex gap-2">
-        <button id="tab-generator-btn" class="px-4 py-2 bg-indigo-500 text-white rounded hover:bg-indigo-600 transition">Генератор</button>
-        <button id="tab-library-btn" class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition">Библиотека страниц</button>
+
+      <div class="flex flex-col items-end gap-3">
+        <!-- Блок авторизации -->
+        <section id="auth-block" class="bg-yellow-50 border border-yellow-200 rounded p-3 w-full md:w-80">
+          <div class="flex items-center justify-between mb-1">
+            <label class="text-sm font-medium text-yellow-800">API ключ (X-API-Key)</label>
+            <span id="auth-success" class="hidden text-green-600 font-medium text-sm">Успешно</span>
+          </div>
+          <div id="auth-input-group" class="flex gap-2">
+            <input type="password" id="api-key-input" placeholder="Введите API ключ" class="flex-1 border border-yellow-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-yellow-300" />
+            <button id="verify-api-key-btn" class="bg-indigo-500 text-white px-3 py-2 rounded hover:bg-indigo-600 transition text-sm">Проверить</button>
+          </div>
+          <p id="auth-hint" class="text-xs text-yellow-700 mt-1">Сохраняется только в памяти вкладки. Запросите ключ у администратора или задайте в <code>.env</code> (API_KEY).</p>
+        </section>
+
+        <!-- Вкладки -->
+        <div class="flex gap-2">
+          <button id="tab-generator-btn" class="px-4 py-2 bg-indigo-500 text-white rounded hover:bg-indigo-600 transition">Генератор</button>
+          <button id="tab-library-btn" class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition">Библиотека страниц</button>
+        </div>
       </div>
     </div>
 
-    <!-- Вкладка Генератора (теперь здесь всё) -->
-    <div id="tab-generator" class="tab-content">
-      <!-- API ключ -->
-      <section class="bg-yellow-50 border border-yellow-200 rounded p-3">
-        <label class="block text-sm font-medium text-yellow-800 mb-1">API ключ (X-API-Key)</label>
-        <input type="password" id="api-key-input" placeholder="Введите API ключ" class="w-full border border-yellow-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-yellow-300" />
-        <p class="text-xs text-yellow-700 mt-1">Сохраняется только в памяти вкладки. Запросите ключ у администратора или задайте в <code>.env</code> (API_KEY).</p>
-      </section>
-
-      <!-- Шаблон -->
-      <section>
-        <h2 class="text-lg font-semibold mb-2">Шаблон тест-кейса</h2>
-        <div id="fields-container" class="flex flex-wrap gap-2 mb-3"></div>
-        <div class="flex gap-2">
-          <input type="text" id="new-field-name" placeholder="Название нового поля" class="border border-gray-300 rounded px-3 py-1 flex-1" />
-          <button id="add-field-btn" class="bg-indigo-500 text-white px-4 py-1 rounded hover:bg-indigo-600 transition">+ Добавить поле</button>
-        </div>
-      </section>
-
+    <!-- Вкладка Генератора -->
+    <div id="tab-generator" class="tab-content space-y-6">
       <!-- Описание задачи -->
       <section>
         <h2 class="text-lg font-semibold mb-2">Описание задачи</h2>
@@ -50,59 +50,80 @@
         </div>
       </section>
 
-      <!-- Кнопка формирования чек-листа -->
-      <button id="generate-checklist-btn" class="w-full bg-indigo-600 text-white font-medium py-2 rounded hover:bg-indigo-700 transition mt-2">
-        Сформировать чек-лист
-      </button>
-      <p id="checklist-loading" class="hidden text-center text-gray-500 italic mt-2">Формирование чек-листа...</p>
-
-      <!-- Блок чек-листа (появляется после генерации) -->
-      <div id="checklist-container" class="hidden space-y-4 mt-4">
-        <div class="flex flex-wrap justify-between items-center gap-2">
-          <h2 class="text-lg font-semibold">Чек-лист проверок</h2>
-          <button id="toggle-all-btn" class="text-sm px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 transition">Снять всё</button>
+      <!-- Шаблон тест-кейса -->
+      <section>
+        <h2 class="text-lg font-semibold mb-2">Шаблон тест-кейса</h2>
+        <div id="fields-container" class="flex flex-wrap gap-2 mb-3"></div>
+        <div class="flex gap-2">
+          <input type="text" id="new-field-name" placeholder="Название нового поля" class="border border-gray-300 rounded px-3 py-1 flex-1" />
+          <button id="add-field-btn" class="bg-indigo-500 text-white px-4 py-1 rounded hover:bg-indigo-600 transition">+ Добавить поле</button>
         </div>
+      </section>
 
-        <div class="flex flex-col md:flex-row gap-4">
-          <!-- Позитивные проверки -->
-          <div class="flex-1 border rounded-lg p-4 bg-green-50/50">
-            <label class="flex items-center gap-2 font-semibold text-green-800 mb-3 cursor-pointer select-none">
-              <input type="checkbox" class="column-toggle" data-category="positive" checked>
-              Позитивные проверки
-            </label>
-            <div id="positive-items" class="space-y-3"></div>
-          </div>
-
-          <!-- Негативные проверки -->
-          <div class="flex-1 border rounded-lg p-4 bg-red-50/50">
-            <label class="flex items-center gap-2 font-semibold text-red-800 mb-3 cursor-pointer select-none">
-              <input type="checkbox" class="column-toggle" data-category="negative" checked>
-              Негативные проверки
-            </label>
-            <div id="negative-items" class="space-y-3"></div>
-          </div>
-        </div>
-
-        <div id="affected-areas-display" class="hidden text-sm text-gray-500 italic border-t pt-2">
-          <span class="font-medium">Затронутые области:</span>
-          <span id="affected-areas-list"></span>
-        </div>
+      <!-- Кнопки генерации -->
+      <div class="flex flex-col sm:flex-row gap-3">
+        <button id="generate-checklist-btn" class="flex-1 bg-indigo-600 text-white font-medium py-2 rounded hover:bg-indigo-700 transition">
+          Сформировать чек-лист
+        </button>
+        <button id="generate-btn" class="flex-1 bg-green-600 text-white font-medium py-2 rounded hover:bg-green-700 transition">
+          Сгенерировать тест-кейсы
+        </button>
       </div>
 
-      <!-- Кнопка генерации тест-кейсов (основная) -->
-      <button id="generate-btn" class="w-full bg-green-600 text-white font-medium py-2 rounded hover:bg-green-700 transition mt-4">
-        Сгенерировать тест-кейсы
-      </button>
-      <p id="loading-msg" class="hidden text-center text-gray-500 italic">Генерация...</p>
+      <div class="flex flex-col sm:flex-row gap-3">
+        <p id="checklist-loading" class="hidden flex-1 text-center text-gray-500 italic">Формирование чек-листа...</p>
+        <p id="loading-msg" class="hidden flex-1 text-center text-gray-500 italic">Генерация...</p>
+      </div>
 
-      <!-- Результат -->
-      <section>
-        <h2 class="text-lg font-semibold mb-2">Результат</h2>
-        <div id="result-container" class="bg-gray-100 rounded p-3 max-h-96 overflow-y-auto">
-          <p class="text-gray-400">Здесь появятся сгенерированные тест-кейсы</p>
-        </div>
-        <button id="copy-btn" class="mt-2 bg-gray-200 text-gray-700 px-4 py-1 rounded hover:bg-gray-300 transition hidden">Скопировать всё в буфер</button>
-      </section>
+      <!-- Две колонки: чек-лист слева, тест-кейсы справа -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Левая колонка: Чек-лист -->
+        <section>
+          <h2 class="text-lg font-semibold mb-2">Чек-лист проверок</h2>
+          <div id="checklist-container" class="hidden space-y-4">
+            <div class="flex flex-wrap justify-between items-center gap-2">
+              <span class="text-sm text-gray-500">Выберите пункты для генерации тест-кейсов</span>
+              <button id="toggle-all-btn" class="text-sm px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 transition">Снять всё</button>
+            </div>
+
+            <div class="flex flex-col gap-4">
+              <!-- Позитивные проверки -->
+              <div class="flex-1 border rounded-lg p-4 bg-green-50/50">
+                <label class="flex items-center gap-2 font-semibold text-green-800 mb-3 cursor-pointer select-none">
+                  <input type="checkbox" class="column-toggle" data-category="positive" checked>
+                  Позитивные проверки
+                </label>
+                <div id="positive-items" class="space-y-3"></div>
+              </div>
+
+              <!-- Негативные проверки -->
+              <div class="flex-1 border rounded-lg p-4 bg-red-50/50">
+                <label class="flex items-center gap-2 font-semibold text-red-800 mb-3 cursor-pointer select-none">
+                  <input type="checkbox" class="column-toggle" data-category="negative" checked>
+                  Негативные проверки
+                </label>
+                <div id="negative-items" class="space-y-3"></div>
+              </div>
+            </div>
+
+            <div id="affected-areas-display" class="hidden text-sm text-gray-500 italic border-t pt-2">
+              <span class="font-medium">Затронутые области:</span>
+              <span id="affected-areas-list"></span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Правая колонка: Тест-кейсы -->
+        <section>
+          <div class="flex justify-between items-center mb-2">
+            <h2 class="text-lg font-semibold">Тест-кейсы</h2>
+            <button id="copy-btn" class="bg-gray-200 text-gray-700 px-4 py-1 rounded hover:bg-gray-300 transition hidden">Скопировать всё в буфер</button>
+          </div>
+          <div id="result-container" class="bg-gray-100 rounded p-3 max-h-[32rem] overflow-y-auto min-h-[10rem]">
+            <p class="text-gray-400">Здесь появятся сгенерированные тест-кейсы</p>
+          </div>
+        </section>
+      </div>
     </div>
 
     <!-- Вкладка Библиотеки страниц (без изменений) -->
@@ -131,7 +152,7 @@
   </div>
 
   <script>
-    // ---------- Общее управление вкладками (только две) ----------
+    // ---------- Общее управление вкладками ----------
     const tabGenerator = document.getElementById('tab-generator');
     const tabLibrary = document.getElementById('tab-library');
     const btnGenerator = document.getElementById('tab-generator-btn');
@@ -161,7 +182,65 @@
     btnGenerator.addEventListener('click', () => switchTab('generator'));
     btnLibrary.addEventListener('click', () => switchTab('library'));
 
-    // ---------- Генератор с интегрированным чек-листом ----------
+    // ---------- Авторизация ----------
+    const apiKeyInput = document.getElementById('api-key-input');
+    const verifyApiKeyBtn = document.getElementById('verify-api-key-btn');
+    const authInputGroup = document.getElementById('auth-input-group');
+    const authHint = document.getElementById('auth-hint');
+    const authSuccess = document.getElementById('auth-success');
+
+    let verifiedApiKey = sessionStorage.getItem('apiKey') || '';
+
+    function getApiKey() {
+      return verifiedApiKey;
+    }
+
+    function authHeaders(extra = {}) {
+      const headers = { ...extra };
+      if (verifiedApiKey) headers['X-API-Key'] = verifiedApiKey;
+      return headers;
+    }
+
+    function showAuthSuccess() {
+      authInputGroup.classList.add('hidden');
+      authHint.classList.add('hidden');
+      authSuccess.classList.remove('hidden');
+    }
+
+    function showAuthInput() {
+      authInputGroup.classList.remove('hidden');
+      authHint.classList.remove('hidden');
+      authSuccess.classList.add('hidden');
+    }
+
+    async function verifyApiKey() {
+      const key = apiKeyInput.value.trim();
+      if (!key) { alert('Введите API ключ'); return; }
+      try {
+        const res = await fetch('/auth/check', { method: 'POST', headers: { 'X-API-Key': key } });
+        if (res.ok) {
+          verifiedApiKey = key;
+          sessionStorage.setItem('apiKey', key);
+          showAuthSuccess();
+        } else {
+          verifiedApiKey = '';
+          sessionStorage.removeItem('apiKey');
+          alert('Неверный API ключ');
+        }
+      } catch (e) {
+        alert('Ошибка проверки ключа');
+      }
+    }
+
+    verifyApiKeyBtn.addEventListener('click', verifyApiKey);
+    apiKeyInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') verifyApiKey(); });
+
+    if (verifiedApiKey) {
+      apiKeyInput.value = verifiedApiKey;
+      verifyApiKey();
+    }
+
+    // ---------- Генератор ----------
     const defaultFields = ["Название", "Предусловия", "Шаги", "Ожидаемый результат"];
     let fields = [...defaultFields];
     const fieldsContainer = document.getElementById('fields-container');
@@ -185,22 +264,6 @@
     // Состояние чек-листа
     let checklistData = null;
     let selectedChecklistIds = new Set();
-
-    // API ключ
-    const apiKeyInput = document.getElementById('api-key-input');
-    apiKeyInput.value = sessionStorage.getItem('apiKey') || '';
-    apiKeyInput.addEventListener('input', () => {
-      sessionStorage.setItem('apiKey', apiKeyInput.value.trim());
-    });
-    function getApiKey() {
-      return apiKeyInput.value.trim();
-    }
-    function authHeaders(extra = {}) {
-      const headers = { ...extra };
-      const key = getApiKey();
-      if (key) headers['X-API-Key'] = key;
-      return headers;
-    }
 
     // ---------- Вспомогательные функции ----------
     function escapeHtml(text) {
@@ -440,7 +503,7 @@
       const text = taskText.value.trim();
       if (!text) { alert('Введите описание задачи'); return; }
       const key = getApiKey();
-      if (!key) { alert('Введите API ключ в поле выше'); apiKeyInput.focus(); return; }
+      if (!key) { alert('Введите и проверьте API ключ'); apiKeyInput.focus(); return; }
       generateChecklistBtn.disabled = true;
       checklistLoading.classList.remove('hidden');
       checklistContainer.classList.add('hidden');
@@ -472,12 +535,12 @@
     }
     generateChecklistBtn.addEventListener('click', generateChecklist);
 
-    // ---------- Генерация тест-кейсов (основная) ----------
+    // ---------- Генерация тест-кейсов ----------
     async function generateTestCases() {
       const text = taskText.value.trim();
       if (!text) { alert('Введите описание задачи'); return; }
       const key = getApiKey();
-      if (!key) { alert('Введите API ключ в поле выше'); apiKeyInput.focus(); return; }
+      if (!key) { alert('Введите и проверьте API ключ'); apiKeyInput.focus(); return; }
 
       // Собираем выбранные пункты чек-листа, если они есть
       let selectedItems = [];
@@ -562,7 +625,7 @@
       } catch { alert('Не удалось скопировать'); }
     });
 
-    // ---------- Библиотека страниц (без изменений) ----------
+    // ---------- Библиотека страниц ----------
     const uploadBtn = document.getElementById('upload-btn');
     const uploadStatus = document.getElementById('upload-status');
     const pageImage = document.getElementById('page-image');
@@ -599,6 +662,8 @@
         alert('Выберите изображение и укажите имя');
         return;
       }
+      const key = getApiKey();
+      if (!key) { alert('Введите и проверьте API ключ'); apiKeyInput.focus(); return; }
       const formData = new FormData();
       formData.append('file', file);
       formData.append('name', name);
@@ -606,8 +671,6 @@
       uploadStatus.textContent = 'Загрузка...';
       uploadBtn.disabled = true;
       try {
-        const key = getApiKey();
-        if (!key) { alert('Введите API ключ в поле выше'); apiKeyInput.focus(); return; }
         const res = await fetch('/pages/upload', {
           method: 'POST',
           headers: authHeaders(),

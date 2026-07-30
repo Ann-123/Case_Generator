@@ -76,6 +76,10 @@ app.mount("/static", StaticFiles(directory="backend/static"), name="static")
 # ----------- Аутентификация ----------
 from .auth import verify_api_key
 
+@app.post("/auth/check")
+async def check_auth(api_key: str = Depends(verify_api_key)):
+    return {"status": "ok"}
+
 # ----------- Роутеры ----------
 from .pages import router as pages_router
 
