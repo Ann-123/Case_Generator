@@ -35,24 +35,19 @@ def add_or_update_page(name: str, image_path: str, description: str):
     conn = sqlite3.connect(DB_PATH)
     row = conn.execute("SELECT image_path FROM pages WHERE name = ?", (name,)).fetchone()
     if row:
-        file_path = os.path.realpath(row[0])  # реальный путь
-        # Проверяем, что файл находится внутри UPLOAD_DIR
-        if os.path.commonpath([file_path, UPLOAD_DIR]) != UPLOAD_DIR:
-            conn.close()
-            logger.error(f"Попытка удаления файла вне UPLOAD_DIR: {file_path}")
-            return False  # или выбросить исключение
-
-        if os.path.exists(file_path):
+        file_path = os.path.realpath(row[0])
+        if os.path.commonpath([file_path, UPLOAD_DIR]) == UPLOAD_DIR and os.path.exists(file_path):
             try:
                 os.remove(file_path)
             except OSError as e:
                 logger.error(f"Не удалось удалить файл {file_path}: {e}")
-        conn.execute("DELETE FROM pages WHERE name = ?", (name,))
-        conn.commit()
-        conn.close()
-        return True
+    conn.execute(
+        "INSERT OR REPLACE INTO pages (name, image_path, description, created_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)",
+        (name, image_path, description),
+    )
+    conn.commit()
     conn.close()
-    return False
+    return True
 
 def get_all_pages():
     conn = sqlite3.connect(DB_PATH)

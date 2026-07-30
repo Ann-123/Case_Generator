@@ -14,3 +14,6 @@ __pycache__/
 # Файлы IDE
 .vscode/
 .idea/
+
+# Загруженные изображения
+backend/static/uploads/

@@ -5,6 +5,9 @@ from unittest.mock import patch, MagicMock, AsyncMock
 from fastapi.testclient import TestClient
 
 
+PNG_DATA = b"fake-png-data-for-test"
+
+
 @pytest.fixture(scope="module")
 def client():
     import tempfile
@@ -14,9 +17,15 @@ def client():
     db_module.DB_PATH = tmp_db
     db_module.init_db()
 
-    from backend.main import app
+    from backend.main import app, limiter
+
+    # Disable rate limiter for tests
+    limiter.enabled = False
 
     client = TestClient(app)
+
+    # Set default headers with API key for all requests
+    client.headers.update({"X-API-Key": "test-api-key-for-tests"})
     yield client
 
     if os.path.exists(tmp_db):
@@ -35,8 +44,9 @@ class TestUploadPage:
         "на странице расположены элементы: 'Кнопка входа', 'Поле email'"
     )
 
+    @patch("backend.pages.magic.from_buffer", return_value="image/png")
     @patch("backend.pages.client.chat.completions.create", new_callable=AsyncMock)
-    def test_upload_success(self, mock_create, client):
+    def test_upload_success(self, mock_create, mock_magic, client):
         mock_response = MagicMock()
         mock_response.choices = [MagicMock()]
         mock_response.choices[0].message.content = self.VISION_RESPONSE_TEXT
@@ -44,7 +54,7 @@ class TestUploadPage:
 
         response = client.post(
             "/pages/upload",
-            files={"file": ("screenshot.png", b"fake-image-data", "image/png")},
+            files={"file": ("screenshot.png", PNG_DATA, "image/png")},
             data={"name": "Главная страница"},
         )
         assert response.status_code == 200
@@ -53,38 +63,41 @@ class TestUploadPage:
         assert data["name"] == "главная страница"
         assert self.VISION_RESPONSE_TEXT in data["description"]
 
+    @patch("backend.pages.magic.from_buffer", return_value="application/zip")
     @patch("backend.pages.client.chat.completions.create", new_callable=AsyncMock)
-    def test_upload_non_image_rejected(self, mock_create, client):
+    def test_upload_non_image_rejected(self, mock_create, mock_magic, client):
         response = client.post(
             "/pages/upload",
             files={"file": ("test.txt", b"text content", "text/plain")},
             data={"name": "Test"},
         )
         assert response.status_code == 400
-        assert "изображением" in response.json()["detail"].lower()
+        assert "неподдерживаемый формат файла" in response.json()["error"].lower()
         mock_create.assert_not_called()
 
     def test_upload_empty_name_rejected(self, client):
         response = client.post(
             "/pages/upload",
-            files={"file": ("img.png", b"data", "image/png")},
+            files={"file": ("img.png", PNG_DATA, "image/png")},
             data={"name": ""},
         )
         assert response.status_code == 400
 
+    @patch("backend.pages.magic.from_buffer", return_value="image/png")
     @patch("backend.pages.client.chat.completions.create", new_callable=AsyncMock)
-    def test_upload_vision_api_error(self, mock_create, client):
+    def test_upload_vision_api_error(self, mock_create, mock_magic, client):
         mock_create.side_effect = Exception("Vision API error")
         response = client.post(
             "/pages/upload",
-            files={"file": ("img.png", b"data", "image/png")},
+            files={"file": ("img.png", PNG_DATA, "image/png")},
             data={"name": "Test Page"},
         )
         assert response.status_code == 500
-        assert "Ошибка распознавания" in response.json()["detail"]
+        assert "Ошибка распознавания" in response.json()["error"]
 
+    @patch("backend.pages.magic.from_buffer", return_value="image/png")
     @patch("backend.pages.client.chat.completions.create", new_callable=AsyncMock)
-    def test_upload_and_list(self, mock_create, client):
+    def test_upload_and_list(self, mock_create, mock_magic, client):
         mock_response = MagicMock()
         mock_response.choices = [MagicMock()]
         mock_response.choices[0].message.content = "desc: button"
@@ -92,7 +105,7 @@ class TestUploadPage:
 
         client.post(
             "/pages/upload",
-            files={"file": ("img.png", b"data", "image/png")},
+            files={"file": ("img.png", PNG_DATA, "image/png")},
             data={"name": "Page1"},
         )
 
@@ -103,8 +116,9 @@ class TestUploadPage:
             p["name"] == "page1" and p["description"] == "desc: button" for p in pages
         )
 
+    @patch("backend.pages.magic.from_buffer", return_value="image/png")
     @patch("backend.pages.client.chat.completions.create", new_callable=AsyncMock)
-    def test_upload_with_clean_name(self, mock_create, client):
+    def test_upload_with_clean_name(self, mock_create, mock_magic, client):
         mock_response = MagicMock()
         mock_response.choices = [MagicMock()]
         mock_response.choices[0].message.content = "desc"
@@ -112,7 +126,7 @@ class TestUploadPage:
 
         response = client.post(
             "/pages/upload",
-            files={"file": ("img.png", b"data", "image/png")},
+            files={"file": ("img.png", PNG_DATA, "image/png")},
             data={"name": "  Special!!!Chars  "},
         )
         assert response.status_code == 200
@@ -120,8 +134,9 @@ class TestUploadPage:
 
 
 class TestDeletePage:
+    @patch("backend.pages.magic.from_buffer", return_value="image/png")
     @patch("backend.pages.client.chat.completions.create", new_callable=AsyncMock)
-    def test_delete_existing(self, mock_create, client):
+    def test_delete_existing(self, mock_create, mock_magic, client):
         mock_response = MagicMock()
         mock_response.choices = [MagicMock()]
         mock_response.choices[0].message.content = "desc"
@@ -129,7 +144,7 @@ class TestDeletePage:
 
         client.post(
             "/pages/upload",
-            files={"file": ("img.png", b"data", "image/png")},
+            files={"file": ("img.png", PNG_DATA, "image/png")},
             data={"name": "ToDelete"},
         )
 
@@ -144,7 +159,7 @@ class TestDeletePage:
     def test_delete_nonexistent(self, client):
         response = client.delete("/pages/Nonexistent")
         assert response.status_code == 404
-        assert "не найдена" in response.json()["detail"]
+        assert "не найдена" in response.json()["error"]
 
 
 class TestGenerate:
@@ -329,7 +344,7 @@ class TestGenerate:
             json={"task_text": "test", "fields": ["Название"]},
         )
         assert response.status_code == 500
-        assert "Ошибка:" in response.json()["error"]
+        assert "Ошибка при генерации тест-кейсов" in response.json()["error"]
 
 
 class TestGenerateChecklist:

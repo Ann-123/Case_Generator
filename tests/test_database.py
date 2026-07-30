@@ -1,4 +1,6 @@
 import os
+from pathlib import Path
+
 import pytest
 from backend.database import (
     init_db,
@@ -13,9 +15,13 @@ from backend.database import (
 @pytest.fixture(autouse=True)
 def fresh_db(monkeypatch, tmp_path):
     test_db = tmp_path / "test_pages.db"
+    test_upload_dir = tmp_path / "uploads"
+    test_upload_dir.mkdir()
     monkeypatch.setattr("backend.database.DB_PATH", str(test_db))
+    monkeypatch.setattr("backend.database.UPLOAD_DIR", str(test_upload_dir))
     init_db()
     yield
+
 
 
 class TestCleanPageName:
@@ -97,22 +103,30 @@ class TestGetAllPages:
 
 
 class TestDeletePage:
-    def test_delete_existing(self):
-        add_or_update_page("To Delete", "/img.png", "Desc")
+    def test_delete_existing(self, tmp_path):
+        img_path = tmp_path / "uploads" / "img.png"
+        img_path.touch()
+        add_or_update_page("To Delete", str(img_path), "Desc")
         assert delete_page("To Delete") is True
         assert get_page_description("To Delete") is None
 
     def test_delete_nonexistent(self):
         assert delete_page("Non Existent") is False
 
-    def test_delete_re_add(self):
-        add_or_update_page("Page", "/img.png", "Desc 1")
+    def test_delete_re_add(self, tmp_path):
+        img_path = tmp_path / "uploads" / "img.png"
+        img_path2 = tmp_path / "uploads" / "img2.png"
+        img_path.touch()
+        img_path2.touch()
+        add_or_update_page("Page", str(img_path), "Desc 1")
         delete_page("Page")
-        add_or_update_page("Page", "/img2.png", "Desc 2")
+        add_or_update_page("Page", str(img_path2), "Desc 2")
         assert get_page_description("Page") == "Desc 2"
 
-    def test_delete_case_insensitive(self):
-        add_or_update_page("PageName", "/img.png", "Desc")
+    def test_delete_case_insensitive(self, tmp_path):
+        img_path = tmp_path / "uploads" / "img.png"
+        img_path.touch()
+        add_or_update_page("PageName", str(img_path), "Desc")
         assert delete_page("pagename") is True
 
 
