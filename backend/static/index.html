@@ -3,219 +3,1375 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>QA Test Case Generator + Библиотека страниц</title>
+  <title>DocFlow QA — Генератор тест-кейсов</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bloom: {
+              50:  '#fdf2f4',
+              100: '#fbe8eb',
+              200: '#f5d0d8',
+              300: '#edb4bf',
+              400: '#e38b9d',
+              500: '#d65f79',
+              600: '#c13e5c',
+              700: '#a22e49',
+              800: '#872940',
+              900: '#6e2537',
+            },
+            ivory: {
+              50:  '#fefdf7',
+              100: '#fdf9e8',
+              200: '#faf2c8',
+              300: '#f6e99e',
+              400: '#f1de6e',
+              500: '#e9d145',
+              600: '#d6b92b',
+              700: '#b3991f',
+              800: '#8f7a1e',
+              900: '#74631e',
+            },
+            lavender: {
+              50:  '#f7f6fc',
+              100: '#f0edf9',
+              200: '#e3ddf3',
+              300: '#cfc4ea',
+              400: '#b7a5de',
+              500: '#9c83d0',
+              600: '#8263bf',
+              700: '#6e50a7',
+              800: '#5a4387',
+              900: '#4a396e',
+            },
+            beige: {
+              50:  '#faf9f5',
+              100: '#f6f3e7',
+              200: '#ede4c9',
+              300: '#e1d1a3',
+              400: '#d4bb78',
+              500: '#c7a654',
+              600: '#b58e43',
+              700: '#967139',
+              800: '#7b5c34',
+              900: '#654c2e',
+            },
+            'gray-blue': {
+              50:  '#f4f7fa',
+              100: '#e9eef5',
+              200: '#d4deeb',
+              300: '#b3c5db',
+              400: '#8fa7c8',
+              500: '#6d8bb3',
+              600: '#57719e',
+              700: '#495d83',
+              800: '#3f4e6b',
+              900: '#374159',
+            },
+            sage: {
+              50:  '#f5f9f5',
+              100: '#eaf3ea',
+              200: '#d0e7d1',
+              300: '#aed3b0',
+              400: '#85ba88',
+              500: '#5f9e63',
+              600: '#48824c',
+              700: '#3a683d',
+              800: '#315334',
+              900: '#29442c',
+            },
+            peach: {
+              50:  '#fef8f4',
+              100: '#fef0e6',
+              200: '#fde0cd',
+              300: '#fbc8a8',
+              400: '#f8a978',
+              500: '#f38a4b',
+              600: '#e46d2c',
+              700: '#bf5521',
+              800: '#9a461f',
+              900: '#7e3c1d',
+            },
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Bloom Tones — CSS-переменные для быстрой кастомизации */
+    :root {
+      --bg-body: #faf9f5;
+      --bg-card: rgba(254, 253, 247, 0.9);
+      --bg-input: rgba(255, 255, 255, 0.8);
+      --text-primary: #3f4e6b;
+      --text-secondary: #57719e;
+      --text-muted: #6d8bb3;
+      --border: rgba(225, 209, 163, 0.5);
+      --border-strong: #e1d1a3;
+      --accent: #e38b9d;
+      --accent-hover: #d65f79;
+      --accent-active: #c13e5c;
+      --shadow-card: rgba(212, 187, 120, 0.2);
+      --shadow-card-hover: rgba(212, 187, 120, 0.3);
+      --shadow-button: rgba(227, 139, 157, 0.2);
+      --shadow-button-hover: rgba(214, 95, 121, 0.3);
+      --success: #5f9e63;
+      --warning: #f38a4b;
+      --danger: #d65f79;
+      --focus-ring: #edb4bf;
+      --radius-sm: 0.75rem;
+      --radius-md: 1rem;
+      --radius-lg: 1.25rem;
+      --radius-xl: 1.5rem;
+      --radius-2xl: 2rem;
+      --transition-fast: 150ms;
+      --transition-base: 300ms;
+      --transition-slow: 500ms;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background-color: var(--bg-body);
+      color: var(--text-primary);
+    }
+
+    /* Скроллбар */
+    ::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+    ::-webkit-scrollbar-track {
+      background: var(--bg-body);
+      border-radius: 999px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-strong);
+      border-radius: 999px;
+      border: 2px solid var(--bg-body);
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #d4bb78;
+    }
+
+    /* Фокус-видимость */
+    *:focus-visible {
+      outline: none;
+      ring: 2px;
+      ring-color: var(--focus-ring);
+      box-shadow: 0 0 0 2px var(--focus-ring);
+      border-radius: var(--radius-sm);
+    }
+
+    /* Анимации */
+    @keyframes fade-in-up {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes pulse-skeleton {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.55; }
+    }
+    @keyframes modal-in {
+      from { opacity: 0; transform: scale(0.96); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    .animate-fade-in-up {
+      animation: fade-in-up 0.45s ease-out forwards;
+    }
+    .animate-modal-in {
+      animation: modal-in 0.25s ease-out forwards;
+    }
+
+    /* Скелетоны */
+    .skeleton {
+      background: linear-gradient(90deg, #ede4c9 0%, #fdf9e8 50%, #ede4c9 100%);
+      background-size: 200% 100%;
+      animation: pulse-skeleton 1.6s ease-in-out infinite;
+      border-radius: var(--radius-md);
+    }
+
+    /* Карточки */
+    .bloom-card {
+      background-color: var(--bg-card);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-radius: var(--radius-2xl);
+      padding: 1.5rem;
+      box-shadow: 0 1px 3px var(--shadow-card);
+      border: 1px solid var(--border);
+      transition: all var(--transition-slow) ease-out;
+    }
+    .bloom-card:hover {
+      box-shadow: 0 8px 24px var(--shadow-card-hover);
+      transform: translateY(-4px);
+    }
+
+    /* Кнопки */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      font-weight: 500;
+      border-radius: var(--radius-xl);
+      padding: 0.625rem 1.25rem;
+      transition: all var(--transition-base) ease-out;
+      cursor: pointer;
+      border: none;
+      line-height: 1.25;
+    }
+    .btn:active {
+      transform: scale(0.96);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    .btn:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+    .btn-primary {
+      background-color: var(--accent);
+      color: white;
+      box-shadow: 0 2px 8px var(--shadow-button);
+    }
+    .btn-primary:hover:not(:disabled) {
+      background-color: var(--accent-hover);
+      box-shadow: 0 4px 14px var(--shadow-button-hover);
+      transform: translateY(-2px);
+    }
+    .btn-primary:active:not(:disabled) {
+      background-color: var(--accent-active);
+    }
+    .btn-secondary {
+      color: var(--text-secondary);
+      background-color: rgba(212, 222, 235, 0.7);
+    }
+    .btn-secondary:hover:not(:disabled) {
+      background-color: #d4deeb;
+      transform: translateY(-2px);
+    }
+    .btn-danger {
+      background-color: var(--danger);
+      color: white;
+      box-shadow: 0 2px 8px rgba(214, 95, 121, 0.2);
+    }
+    .btn-danger:hover:not(:disabled) {
+      background-color: #c13e5c;
+      box-shadow: 0 4px 14px rgba(193, 62, 92, 0.3);
+      transform: translateY(-2px);
+    }
+    .btn-ghost {
+      color: var(--text-secondary);
+      background-color: transparent;
+    }
+    .btn-ghost:hover:not(:disabled) {
+      background-color: rgba(212, 222, 235, 0.5);
+      transform: translateY(-2px);
+    }
+
+    /* Поля ввода */
+    .bloom-input {
+      width: 100%;
+      padding: 0.625rem 1rem;
+      border-radius: var(--radius-xl);
+      background-color: var(--bg-input);
+      border: 1px solid var(--border-strong);
+      color: var(--text-primary);
+      transition: all var(--transition-base) ease-out;
+      outline: none;
+    }
+    .bloom-input::placeholder {
+      color: var(--text-muted);
+    }
+    .bloom-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--focus-ring);
+      background-color: #fff;
+    }
+    .bloom-input:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    /* Бейджи */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.25rem 0.75rem;
+      font-size: 0.75rem;
+      line-height: 1;
+      font-weight: 500;
+      border-radius: 9999px;
+    }
+    .badge-success { background-color: #eaf3ea; color: #3a683d; }
+    .badge-warning { background-color: #fef0e6; color: #bf5521; }
+    .badge-danger { background-color: #fbe8eb; color: #a22e49; }
+    .badge-info { background-color: #f0edf9; color: #6e50a7; }
+
+    /* Чипы полей */
+    .bloom-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.4rem 0.9rem;
+      border-radius: 9999px;
+      font-size: 0.875rem;
+      background-color: #f0edf9;
+      color: #6e50a7;
+      transition: all var(--transition-base) ease-out;
+    }
+    .bloom-chip button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.1rem;
+      height: 1.1rem;
+      border-radius: 9999px;
+      border: none;
+      background: transparent;
+      color: #8263bf;
+      cursor: pointer;
+      font-size: 1rem;
+      line-height: 1;
+      transition: all var(--transition-fast);
+    }
+    .bloom-chip button:hover {
+      background-color: #e3ddf3;
+      color: #a22e49;
+    }
+
+    /* Таблицы */
+    .bloom-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+    }
+    .bloom-table th {
+      background-color: #fdf9e8;
+      color: var(--text-secondary);
+      font-weight: 600;
+      text-align: left;
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border-strong);
+    }
+    .bloom-table td {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid rgba(225, 209, 163, 0.35);
+      color: var(--text-primary);
+    }
+    .bloom-table tr:hover td {
+      background-color: var(--bg-body);
+    }
+
+    /* Дерево требований */
+    .tree-node {
+      border-radius: var(--radius-md);
+      transition: all var(--transition-base) ease-out;
+    }
+    .tree-node:hover {
+      background-color: #f7f6fc;
+    }
+    .tree-node.active {
+      background-color: #f0edf9;
+    }
+    .tree-node-content {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 0.75rem;
+      cursor: pointer;
+      user-select: none;
+    }
+    .tree-children {
+      overflow: hidden;
+      transition: max-height var(--transition-base) ease-out;
+    }
+    .tree-toggle {
+      width: 1.25rem;
+      height: 1.25rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 0.375rem;
+      transition: transform var(--transition-base) ease-out;
+      color: var(--text-muted);
+    }
+    .tree-toggle.expanded {
+      transform: rotate(90deg);
+    }
+
+    /* Чек-лист аккордеон */
+    .checklist-item {
+      border-left: 4px solid var(--accent);
+      padding-left: 1rem;
+      padding-top: 0.5rem;
+      padding-bottom: 0.5rem;
+      border-radius: 0 var(--radius-md) var(--radius-md) 0;
+      transition: all var(--transition-base) ease-out;
+      cursor: pointer;
+    }
+    .checklist-item:hover {
+      background-color: #f7f6fc;
+    }
+    .checklist-item.active {
+      background-color: #f0edf9;
+    }
+    .checklist-body {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height var(--transition-base) ease-out, opacity var(--transition-base) ease-out;
+      opacity: 0;
+    }
+    .checklist-body.open {
+      opacity: 1;
+    }
+
+    /* Модальные окна */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background-color: rgba(63, 78, 107, 0.35);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--transition-base) ease-out;
+    }
+    .modal-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .modal-panel {
+      background-color: var(--bg-card);
+      border-radius: var(--radius-2xl);
+      border: 1px solid var(--border);
+      box-shadow: 0 20px 48px rgba(63, 78, 107, 0.18);
+      width: 100%;
+      max-width: 28rem;
+      margin: 1rem;
+      transform: scale(0.96);
+      opacity: 0;
+      transition: all var(--transition-base) ease-out;
+    }
+    .modal-overlay.open .modal-panel {
+      transform: scale(1);
+      opacity: 1;
+    }
+
+    /* Навигация */
+    .nav-link {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.5rem 0.625rem;
+      border-radius: var(--radius-lg);
+      color: var(--text-secondary);
+      font-weight: 500;
+      font-size: 0.875rem;
+      white-space: nowrap;
+      transition: all var(--transition-base) ease-out;
+      cursor: pointer;
+      border: none;
+      background: transparent;
+    }
+    .nav-link:hover {
+      background-color: rgba(240, 237, 249, 0.7);
+      color: var(--text-primary);
+      transform: translateY(-1px);
+    }
+    .nav-link.active {
+      background-color: #f0edf9;
+      color: #6e50a7;
+    }
+
+    /* Виджет авторизации */
+    .auth-card {
+      background-color: rgba(254, 248, 244, 0.7);
+      border: 1px solid rgba(251, 200, 168, 0.5);
+      border-radius: var(--radius-xl);
+      padding: 0.75rem 1rem;
+    }
+
+    /* Области сетки */
+    .view-section {
+      display: none;
+    }
+    .view-section.active {
+      display: block;
+      animation: fade-in-up 0.35s ease-out;
+    }
+
+    /* Тест-кейс карточка */
+    .test-case-card {
+      background-color: rgba(255, 255, 255, 0.85);
+      border-radius: var(--radius-xl);
+      border: 1px solid var(--border);
+      padding: 1rem 1.25rem;
+      margin-bottom: 1rem;
+      border-left: 4px solid var(--accent);
+      transition: all var(--transition-base) ease-out;
+    }
+    .test-case-card:hover {
+      box-shadow: 0 4px 16px var(--shadow-card);
+      transform: translateY(-2px);
+    }
+
+    /* Лоадер */
+    .spinner {
+      width: 1.25rem;
+      height: 1.25rem;
+      border: 2px solid rgba(227, 139, 157, 0.25);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Адаптивность */
+    @media (max-width: 1023px) {
+      .sidebar-desktop {
+        transform: translateX(-100%);
+        position: fixed;
+        inset: 0 auto 0 0;
+        z-index: 40;
+        box-shadow: 4px 0 24px rgba(63, 78, 107, 0.15);
+        transition: transform var(--transition-base) ease-out;
+      }
+      .sidebar-desktop.open {
+        transform: translateX(0);
+      }
+      .sidebar-backdrop {
+        position: fixed;
+        inset: 0;
+        background-color: rgba(63, 78, 107, 0.25);
+        z-index: 35;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity var(--transition-base) ease-out;
+      }
+      .sidebar-backdrop.open {
+        opacity: 1;
+        pointer-events: auto;
+      }
+    }
+    @media (min-width: 1024px) {
+      .sidebar-backdrop { display: none !important; }
+      .sidebar-toggle { display: none !important; }
+    }
+  </style>
 </head>
-<body class="bg-gray-50 min-h-screen p-6 flex flex-col items-center">
-  <div class="max-w-7xl w-full bg-white rounded-xl shadow p-6 space-y-6">
-    <!-- Верхняя строка: заголовок слева, авторизация и вкладки справа -->
-    <div class="flex flex-col md:flex-row md:justify-between md:items-start gap-4 border-b pb-4">
-      <h1 class="text-2xl font-bold text-gray-800">QA Test Case Generator</h1>
+<body class="bg-beige-50 text-gray-blue-800 min-h-screen flex flex-col">
 
-      <div class="flex flex-col items-end gap-3">
-        <!-- Блок авторизации -->
-        <section id="auth-block" class="bg-yellow-50 border border-yellow-200 rounded p-3 w-full md:w-80">
-          <div class="flex items-center justify-between mb-1">
-            <label class="text-sm font-medium text-yellow-800">API ключ (X-API-Key)</label>
-            <span id="auth-success" class="hidden text-green-600 font-medium text-sm">Успешно</span>
+  <!-- Навигация -->
+  <header class="sticky top-0 z-30 bg-ivory-50/80 backdrop-blur-lg border-b border-beige-200/50 shadow-sm shadow-beige-300/10">
+    <div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <button id="sidebar-toggle" class="sidebar-toggle p-2 rounded-xl hover:bg-lavender-100 text-gray-blue-600 transition-all duration-300" aria-label="Открыть меню">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+        <div class="flex items-center gap-2 flex-shrink-0">
+          <div class="w-9 h-9 rounded-xl bg-bloom-400 text-white flex items-center justify-center shadow-sm shadow-bloom-400/20 flex-shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
           </div>
-          <div id="auth-input-group" class="flex gap-2">
-            <input type="password" id="api-key-input" placeholder="Введите API ключ" class="flex-1 border border-yellow-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-yellow-300" />
-            <button id="verify-api-key-btn" class="bg-indigo-500 text-white px-3 py-2 rounded hover:bg-indigo-600 transition text-sm">Проверить</button>
-          </div>
-          <p id="auth-hint" class="text-xs text-yellow-700 mt-1">Сохраняется только в памяти вкладки. Запросите ключ у администратора или задайте в <code>.env</code> (API_KEY).</p>
-        </section>
-
-        <!-- Вкладки -->
-        <div class="flex gap-2">
-          <button id="tab-generator-btn" class="px-4 py-2 bg-indigo-500 text-white rounded hover:bg-indigo-600 transition">Генератор</button>
-          <button id="tab-library-btn" class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition">Библиотека страниц</button>
+          <span class="text-lg font-semibold text-bloom-600 tracking-tight whitespace-nowrap">DocFlow QA</span>
         </div>
+      </div>
+
+      <nav class="hidden md:flex items-center gap-1" aria-label="Основная навигация">
+        <button data-view="projects" class="nav-link">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
+          Проекты
+        </button>
+        <button data-view="generator" class="nav-link active">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+          Генератор
+        </button>
+        <button data-view="library" class="nav-link">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+          Библиотека страниц
+        </button>
+        <button data-view="requirements" class="nav-link">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+          ЧТЗ
+        </button>
+        <button data-view="checklists" class="nav-link">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
+          Чек-листы
+        </button>
+        <button data-view="settings" class="nav-link">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+          Настройки
+        </button>
+      </nav>
+
+      <!-- Блок авторизации (компактный) -->
+      <div class="flex items-center gap-3">
+        <div id="auth-block" class="auth-card">
+          <div id="auth-input-group" class="flex items-center gap-2">
+            <input type="password" id="api-key-input" placeholder="API ключ" class="bloom-input text-sm py-1.5 px-3 w-40 lg:w-48" />
+            <button id="verify-api-key-btn" class="btn btn-primary text-sm py-1.5 px-3 whitespace-nowrap">Проверить</button>
+          </div>
+          <div id="auth-success" class="hidden flex items-center gap-2 text-sm font-medium text-sage-700">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>
+            <span>Успешно</span>
+          </div>
+        </div>
+        <span id="auth-hint" class="hidden lg:flex items-center justify-center w-6 h-6 rounded-full hover:bg-lavender-100 text-gray-blue-400 transition-colors cursor-help" title="Ключ хранится только в памяти вкладки">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        </span>
       </div>
     </div>
+  </header>
 
-    <!-- Вкладка Генератора -->
-    <div id="tab-generator" class="tab-content space-y-6">
-      <!-- Описание задачи -->
-      <section>
-        <h2 class="text-lg font-semibold mb-2">Описание задачи</h2>
-        <textarea id="task-text" rows="6" placeholder="Вставьте описание фичи или баг-репорт..." class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-300"></textarea>
-        <p class="text-xs text-gray-400 mt-1">
-          <em>Используйте <code>{{Имя страницы}}</code> для подстановки описания из библиотеки страниц.</em>
-        </p>
-        <!-- Быстрый список страниц -->
-        <div id="pages-hint" class="mt-2 p-2 bg-gray-50 rounded text-sm hidden">
-          <p class="font-medium">Доступные страницы:</p>
-          <ul id="pages-hint-list" class="list-disc ml-5 text-indigo-600"></ul>
-        </div>
-      </section>
-
-      <!-- Шаблон тест-кейса -->
-      <section>
-        <h2 class="text-lg font-semibold mb-2">Шаблон тест-кейса</h2>
-        <div id="fields-container" class="flex flex-wrap gap-2 mb-3"></div>
-        <div class="flex gap-2">
-          <input type="text" id="new-field-name" placeholder="Название нового поля" class="border border-gray-300 rounded px-3 py-1 flex-1" />
-          <button id="add-field-btn" class="bg-indigo-500 text-white px-4 py-1 rounded hover:bg-indigo-600 transition">+ Добавить поле</button>
-        </div>
-      </section>
-
-      <!-- Кнопки генерации -->
-      <div class="flex flex-col sm:flex-row gap-3">
-        <button id="generate-checklist-btn" class="flex-1 bg-indigo-600 text-white font-medium py-2 rounded hover:bg-indigo-700 transition">
-          Сформировать чек-лист
-        </button>
-        <button id="generate-btn" class="flex-1 bg-green-600 text-white font-medium py-2 rounded hover:bg-green-700 transition">
-          Сгенерировать тест-кейсы
-        </button>
-      </div>
-
-      <div class="flex flex-col sm:flex-row gap-3">
-        <p id="checklist-loading" class="hidden flex-1 text-center text-gray-500 italic">Формирование чек-листа...</p>
-        <p id="loading-msg" class="hidden flex-1 text-center text-gray-500 italic">Генерация...</p>
-      </div>
-
-      <!-- Две колонки: чек-лист слева, тест-кейсы справа -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <!-- Левая колонка: Чек-лист -->
-        <section>
-          <h2 class="text-lg font-semibold mb-2">Чек-лист проверок</h2>
-          <div id="checklist-container" class="hidden space-y-4">
-            <div class="flex flex-wrap justify-between items-center gap-2">
-              <span class="text-sm text-gray-500">Выберите пункты для генерации тест-кейсов</span>
-              <button id="toggle-all-btn" class="text-sm px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 transition">Снять всё</button>
-            </div>
-
-            <div class="flex flex-col gap-4">
-              <!-- Позитивные проверки -->
-              <div class="flex-1 border rounded-lg p-4 bg-green-50/50">
-                <label class="flex items-center gap-2 font-semibold text-green-800 mb-3 cursor-pointer select-none">
-                  <input type="checkbox" class="column-toggle" data-category="positive" checked>
-                  Позитивные проверки
-                </label>
-                <div id="positive-items" class="space-y-3"></div>
-              </div>
-
-              <!-- Негативные проверки -->
-              <div class="flex-1 border rounded-lg p-4 bg-red-50/50">
-                <label class="flex items-center gap-2 font-semibold text-red-800 mb-3 cursor-pointer select-none">
-                  <input type="checkbox" class="column-toggle" data-category="negative" checked>
-                  Негативные проверки
-                </label>
-                <div id="negative-items" class="space-y-3"></div>
-              </div>
-            </div>
-
-            <div id="affected-areas-display" class="hidden text-sm text-gray-500 italic border-t pt-2">
-              <span class="font-medium">Затронутые области:</span>
-              <span id="affected-areas-list"></span>
-            </div>
-          </div>
-        </section>
-
-        <!-- Правая колонка: Тест-кейсы -->
-        <section>
-          <div class="flex justify-between items-center mb-2">
-            <h2 class="text-lg font-semibold">Тест-кейсы</h2>
-            <button id="copy-btn" class="bg-gray-200 text-gray-700 px-4 py-1 rounded hover:bg-gray-300 transition hidden">Скопировать всё в буфер</button>
-          </div>
-          <div id="result-container" class="bg-gray-100 rounded p-3 max-h-[32rem] overflow-y-auto min-h-[10rem]">
-            <p class="text-gray-400">Здесь появятся сгенерированные тест-кейсы</p>
-          </div>
-        </section>
-      </div>
+  <!-- Mobile nav — выпадающий список -->
+  <div class="md:hidden border-b border-beige-200/50 bg-ivory-50/70 backdrop-blur px-4 py-2 overflow-x-auto">
+    <div class="flex gap-2 min-w-max">
+      <button data-view="projects" class="nav-link text-sm py-1.5 px-3">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
+        Проекты
+      </button>
+      <button data-view="generator" class="nav-link active text-sm py-1.5 px-3">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+        Генератор
+      </button>
+      <button data-view="library" class="nav-link text-sm py-1.5 px-3">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+        Библиотека
+      </button>
+      <button data-view="requirements" class="nav-link text-sm py-1.5 px-3">ЧТЗ</button>
+      <button data-view="checklists" class="nav-link text-sm py-1.5 px-3">Чек-листы</button>
+      <button data-view="settings" class="nav-link text-sm py-1.5 px-3">Настройки</button>
     </div>
+  </div>
 
-    <!-- Вкладка Библиотеки страниц (без изменений) -->
-    <div id="tab-library" class="tab-content hidden">
-      <section>
-        <h2 class="text-lg font-semibold mb-4">Загрузить новую страницу</h2>
-        <div class="border rounded p-4 bg-gray-50 space-y-3">
-          <div>
-            <label class="block text-sm font-medium mb-1">Изображение (скриншот)</label>
-            <input type="file" id="page-image" accept="image/*" class="w-full border border-gray-300 rounded px-3 py-2" />
+  <!-- Layout -->
+  <div class="flex flex-1 max-w-[1600px] mx-auto w-full">
+    <!-- Backdrop для мобильного сайдбара -->
+    <div id="sidebar-backdrop" class="sidebar-backdrop"></div>
+
+    <!-- Левая боковая панель (260px) -->
+    <aside id="sidebar" class="sidebar-desktop w-[260px] flex-shrink-0 bg-ivory-50/80 backdrop-blur-lg border-r border-beige-200/50 flex flex-col h-[calc(100vh-4rem)] sticky top-16 overflow-hidden">
+      <div class="p-4 border-b border-beige-200/50">
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="text-sm font-semibold text-gray-blue-700">Проекты</h2>
+          <button id="new-project-btn" class="btn btn-primary text-xs py-1.5 px-2.5 rounded-xl">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+            Новый
+          </button>
+        </div>
+        <div class="relative">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+          <input type="text" placeholder="Найти проект..." class="bloom-input text-sm pl-9 py-1.5" />
+        </div>
+      </div>
+
+      <div id="project-tree" class="flex-1 overflow-y-auto p-3 space-y-1">
+        <!-- Пример данных дерева -->
+        <div class="tree-node active">
+          <div class="tree-node-content">
+            <span class="tree-toggle expanded">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" /></svg>
+            </span>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-bloom-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
+            <span class="text-sm font-medium">Мобильный банк</span>
+            <span class="badge badge-success ml-auto">Активен</span>
           </div>
-          <div>
-            <label class="block text-sm font-medium mb-1">Уникальное имя страницы</label>
-            <input type="text" id="page-name" placeholder="Например: Главная после входа" class="w-full border border-gray-300 rounded px-3 py-2" />
+          <div class="tree-children pl-8 space-y-1" style="max-height: 500px;">
+            <div class="tree-node">
+              <div class="tree-node-content">
+                <span class="tree-toggle">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" /></svg>
+                </span>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                <span class="text-sm">Авторизация</span>
+              </div>
+            </div>
+            <div class="tree-node">
+              <div class="tree-node-content">
+                <span class="tree-toggle">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" /></svg>
+                </span>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                <span class="text-sm">Переводы</span>
+              </div>
+            </div>
+            <div class="tree-node">
+              <div class="tree-node-content">
+                <span class="tree-toggle">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" /></svg>
+                </span>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                <span class="text-sm">История</span>
+              </div>
+            </div>
           </div>
-          <button id="upload-btn" class="bg-indigo-500 text-white px-4 py-2 rounded hover:bg-indigo-600 transition w-full">Загрузить и распознать</button>
-          <p id="upload-status" class="text-sm text-gray-500 hidden"></p>
+        </div>
+
+        <div class="tree-node">
+          <div class="tree-node-content">
+            <span class="tree-toggle">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" /></svg>
+            </span>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
+            <span class="text-sm">Интернет-магазин</span>
+            <span class="badge badge-warning ml-auto">Черновик</span>
+          </div>
+        </div>
+
+        <div class="tree-node">
+          <div class="tree-node-content">
+            <span class="tree-toggle">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" /></svg>
+            </span>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
+            <span class="text-sm">CRM админка</span>
+            <span class="badge badge-info ml-auto">Архив</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="p-4 border-t border-beige-200/50">
+        <button class="btn btn-secondary w-full text-sm" onclick="showComingSoon()">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
+          Управление проектами
+        </button>
+      </div>
+    </aside>
+
+    <!-- Основная область -->
+    <main class="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 overflow-y-auto">
+
+      <!-- ВИД: ПРОЕКТЫ -->
+      <section id="view-projects" class="view-section">
+        <div class="bloom-card mb-6">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 class="text-2xl font-semibold text-gray-blue-800">Проекты</h1>
+              <p class="text-gray-blue-500 mt-1">Выберите проект для работы или создайте новый.</p>
+            </div>
+            <button class="btn btn-primary" onclick="showComingSoon()">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+              Создать проект
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+          <div class="bloom-card group cursor-pointer" onclick="switchView('generator')">
+            <div class="flex items-start justify-between mb-4">
+              <div class="w-12 h-12 rounded-2xl bg-bloom-100 text-bloom-600 flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+              </div>
+              <span class="badge badge-success">Активен</span>
+            </div>
+            <h3 class="text-lg font-semibold text-gray-blue-800 mb-1">Мобильный банк</h3>
+            <p class="text-sm text-gray-blue-500 mb-4">24 тест-кейса · 3 раздела · Последнее изменение: сегодня</p>
+            <div class="flex items-center gap-2 text-sm text-bloom-500 font-medium">
+              <span>Открыть генератор</span>
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
+            </div>
+          </div>
+
+          <div class="bloom-card group cursor-pointer" onclick="showComingSoon()">
+            <div class="flex items-start justify-between mb-4">
+              <div class="w-12 h-12 rounded-2xl bg-peach-100 text-peach-600 flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+              </div>
+              <span class="badge badge-warning">Черновик</span>
+            </div>
+            <h3 class="text-lg font-semibold text-gray-blue-800 mb-1">Интернет-магазин</h3>
+            <p class="text-sm text-gray-blue-500 mb-4">0 тест-кейсов · 1 раздел · Последнее изменение: вчера</p>
+            <div class="flex items-center gap-2 text-sm text-bloom-500 font-medium">
+              <span>Продолжить</span>
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
+            </div>
+          </div>
+
+          <div class="bloom-card border-dashed border-2 border-beige-300/60 flex flex-col items-center justify-center text-center py-10 cursor-pointer hover:border-bloom-300 hover:bg-ivory-50" onclick="showComingSoon()">
+            <div class="w-14 h-14 rounded-2xl bg-beige-100 text-beige-600 flex items-center justify-center mb-3">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+            </div>
+            <h3 class="text-base font-semibold text-gray-blue-700 mb-1">Создать новый проект</h3>
+            <p class="text-sm text-gray-blue-500">Начните с описания продукта или импорта ЧТЗ</p>
+          </div>
         </div>
       </section>
 
-      <section class="mt-6">
-        <h2 class="text-lg font-semibold mb-2">Сохранённые страницы</h2>
-        <div id="pages-list" class="space-y-3">Загрузка...</div>
+      <!-- ВИД: ГЕНЕРАТОР -->
+      <section id="view-generator" class="view-section active">
+        <div class="bloom-card mb-6">
+          <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div>
+              <div class="flex items-center gap-2 mb-1">
+                <h1 class="text-2xl font-semibold text-gray-blue-800">Генератор тест-кейсов</h1>
+                <span class="badge badge-success">Активен</span>
+              </div>
+              <p class="text-gray-blue-500">Опишите задачу, сформируйте чек-лист и сгенерируйте тест-кейсы.</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button class="btn btn-secondary text-sm" onclick="showComingSoon()">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                Экспорт
+              </button>
+              <button class="btn btn-secondary text-sm" onclick="showComingSoon()">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                История
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+          <!-- Левая колонка: ввод и поля -->
+          <div class="xl:col-span-2 space-y-6">
+            <div class="bloom-card">
+              <h2 class="text-base font-semibold text-gray-blue-800 mb-3 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-bloom-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                Описание задачи
+              </h2>
+              <textarea id="task-text" rows="7" placeholder="Вставьте описание фичи или баг-репорт..." class="bloom-input mb-2"></textarea>
+              <p class="text-xs text-gray-blue-500">
+                <em>Используйте <code class="bg-ivory-100 px-1 py-0.5 rounded text-bloom-600">{{Имя страницы}}</code> для подстановки описания из библиотеки страниц.</em>
+              </p>
+
+              <!-- Быстрый список страниц -->
+              <div id="pages-hint" class="mt-4 p-3 bg-ivory-50 rounded-xl border border-beige-200/50 hidden">
+                <p class="text-sm font-medium text-gray-blue-700 mb-2">Доступные страницы:</p>
+                <ul id="pages-hint-list" class="flex flex-wrap gap-2"></ul>
+              </div>
+            </div>
+
+            <div class="bloom-card">
+              <h2 class="text-base font-semibold text-gray-blue-800 mb-3 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-bloom-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>
+                Шаблон тест-кейса
+              </h2>
+              <div id="fields-container" class="flex flex-wrap gap-2 mb-3"></div>
+              <div class="flex gap-2">
+                <input type="text" id="new-field-name" placeholder="Название нового поля" class="bloom-input" />
+                <button id="add-field-btn" class="btn btn-primary whitespace-nowrap">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+                  Добавить
+                </button>
+              </div>
+            </div>
+
+            <div class="flex flex-col sm:flex-row gap-3">
+              <button id="generate-checklist-btn" class="btn btn-secondary flex-1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
+                Сформировать чек-лист
+              </button>
+              <button id="generate-btn" class="btn btn-primary flex-1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                Сгенерировать тест-кейсы
+              </button>
+            </div>
+
+            <div class="flex flex-col sm:flex-row gap-3">
+              <p id="checklist-loading" class="hidden flex-1 text-center text-gray-blue-500 italic py-2 flex items-center justify-center gap-2">
+                <span class="spinner"></span>
+                Формирование чек-листа...
+              </p>
+              <p id="loading-msg" class="hidden flex-1 text-center text-gray-blue-500 italic py-2 flex items-center justify-center gap-2">
+                <span class="spinner"></span>
+                Генерация...
+              </p>
+            </div>
+          </div>
+
+          <!-- Правая колонка: чек-лист и результаты -->
+          <div class="xl:col-span-1 space-y-6">
+            <!-- Чек-лист -->
+            <div class="bloom-card">
+              <div class="flex items-center justify-between mb-4">
+                <h2 class="text-base font-semibold text-gray-blue-800 flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-bloom-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
+                  Чек-лист проверок
+                </h2>
+                <button id="toggle-all-btn" class="btn btn-secondary text-xs py-1.5 px-2.5 hidden">Снять всё</button>
+              </div>
+
+              <div id="checklist-container" class="hidden space-y-4">
+                <p class="text-xs text-gray-blue-500 mb-2">Выберите пункты для генерации тест-кейсов</p>
+
+                <!-- Позитивные проверки -->
+                <div class="rounded-xl p-3 bg-sage-50/70 border border-sage-200/40">
+                  <label class="flex items-center gap-2 font-semibold text-sage-800 mb-3 cursor-pointer select-none text-sm">
+                    <input type="checkbox" class="column-toggle w-4 h-4 rounded border-beige-300 text-bloom-500 focus:ring-bloom-300" data-category="positive" checked>
+                    Позитивные проверки
+                  </label>
+                  <div id="positive-items" class="space-y-3"></div>
+                </div>
+
+                <!-- Негативные проверки -->
+                <div class="rounded-xl p-3 bg-bloom-50/50 border border-bloom-200/30">
+                  <label class="flex items-center gap-2 font-semibold text-bloom-800 mb-3 cursor-pointer select-none text-sm">
+                    <input type="checkbox" class="column-toggle w-4 h-4 rounded border-beige-300 text-bloom-500 focus:ring-bloom-300" data-category="negative" checked>
+                    Негативные проверки
+                  </label>
+                  <div id="negative-items" class="space-y-3"></div>
+                </div>
+
+                <div id="affected-areas-display" class="hidden text-xs text-gray-blue-500 italic border-t border-beige-200/50 pt-3">
+                  <span class="font-medium">Затронутые области:</span>
+                  <span id="affected-areas-list"></span>
+                </div>
+              </div>
+
+              <div id="checklist-empty" class="text-center py-8">
+                <div class="w-16 h-16 rounded-2xl bg-ivory-100 text-gray-blue-400 flex items-center justify-center mx-auto mb-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
+                </div>
+                <p class="text-sm text-gray-blue-500">Чек-лист появится после нажатия «Сформировать чек-лист»</p>
+              </div>
+            </div>
+
+            <!-- Тест-кейсы -->
+            <div class="bloom-card">
+              <div class="flex items-center justify-between mb-4">
+                <h2 class="text-base font-semibold text-gray-blue-800 flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-bloom-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                  Тест-кейсы
+                </h2>
+                <button id="copy-btn" class="btn btn-secondary text-xs py-1.5 px-2.5 hidden">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" /></svg>
+                  Скопировать всё
+                </button>
+              </div>
+              <div id="result-container" class="bg-beige-50/70 rounded-2xl p-4 max-h-[24rem] overflow-y-auto min-h-[10rem] border border-beige-200/50">
+                <p class="text-gray-blue-400 text-sm text-center py-8">Здесь появятся сгенерированные тест-кейсы</p>
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
+
+      <!-- ВИД: БИБЛИОТЕКА СТРАНИЦ -->
+      <section id="view-library" class="view-section">
+        <div class="bloom-card mb-6">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 class="text-2xl font-semibold text-gray-blue-800">Библиотека страниц</h1>
+              <p class="text-gray-blue-500 mt-1">Загружайте скриншоты и используйте их в описании задач.</p>
+            </div>
+            <span class="badge badge-info" id="pages-count">Загрузка...</span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div class="lg:col-span-1">
+            <div class="bloom-card">
+              <h2 class="text-base font-semibold text-gray-blue-800 mb-4 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-bloom-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                Загрузить новую страницу
+              </h2>
+              <div class="space-y-4">
+                <div>
+                  <label class="block text-sm font-medium text-gray-blue-700 mb-1.5">Изображение (скриншот)</label>
+                  <div class="relative">
+                    <input type="file" id="page-image" accept="image/*" class="bloom-input file:mr-4 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-sm file:font-medium file:bg-ivory-100 file:text-gray-blue-700 hover:file:bg-ivory-200" />
+                  </div>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-blue-700 mb-1.5">Уникальное имя страницы</label>
+                  <input type="text" id="page-name" placeholder="Например: Главная после входа" class="bloom-input" />
+                </div>
+                <button id="upload-btn" class="btn btn-primary w-full">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                  Загрузить и распознать
+                </button>
+                <p id="upload-status" class="text-sm text-gray-blue-500 hidden text-center"></p>
+              </div>
+            </div>
+          </div>
+
+          <div class="lg:col-span-2">
+            <div class="bloom-card">
+              <h2 class="text-base font-semibold text-gray-blue-800 mb-4">Сохранённые страницы</h2>
+              <div id="pages-list" class="space-y-3">
+                <div class="skeleton h-16 w-full"></div>
+                <div class="skeleton h-16 w-full"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ВИД: РЕДАКТОР ЧТЗ -->
+      <section id="view-requirements" class="view-section">
+        <div class="bloom-card mb-6">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 class="text-2xl font-semibold text-gray-blue-800">Редактор ЧТЗ</h1>
+              <p class="text-gray-blue-500 mt-1">Структурируйте требования и связывайте их с тест-кейсами.</p>
+            </div>
+            <div class="flex gap-2">
+              <button class="btn btn-secondary text-sm" onclick="showComingSoon()">Импорт</button>
+              <button class="btn btn-primary text-sm" onclick="showComingSoon()">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+                Добавить требование
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="bloom-card">
+          <div class="flex flex-col lg:flex-row gap-6">
+            <div class="lg:w-1/3 space-y-3">
+              <h3 class="text-sm font-semibold text-gray-blue-700 mb-2">Структура требований</h3>
+              <div class="space-y-1">
+                <div class="tree-node active">
+                  <div class="tree-node-content">
+                    <span class="tree-toggle expanded">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" /></svg>
+                    </span>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                    <span class="text-sm">FR-001 Авторизация</span>
+                  </div>
+                  <div class="tree-children pl-7" style="max-height: 200px;">
+                    <div class="tree-node">
+                      <div class="tree-node-content">
+                        <span class="tree-toggle">
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" /></svg>
+                        </span>
+                        <span class="text-sm text-gray-blue-600">FR-001.1 Вход по логину</span>
+                      </div>
+                    </div>
+                    <div class="tree-node">
+                      <div class="tree-node-content">
+                        <span class="tree-toggle">
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" /></svg>
+                        </span>
+                        <span class="text-sm text-gray-blue-600">FR-001.2 Вход по SMS</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="tree-node">
+                  <div class="tree-node-content">
+                    <span class="tree-toggle">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" /></svg>
+                    </span>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                    <span class="text-sm">FR-002 Переводы</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="lg:w-2/3">
+              <div class="bg-ivory-50/70 rounded-2xl border border-beige-200/50 p-6 h-full flex flex-col items-center justify-center text-center min-h-[16rem]">
+                <div class="w-16 h-16 rounded-2xl bg-lavender-100 text-lavender-600 flex items-center justify-center mb-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-blue-800 mb-1">Выберите требование для редактирования</h3>
+                <p class="text-sm text-gray-blue-500 max-w-md">Редактор ЧТЗ будет здесь. Сейчас это заглушка для будущего компонента.</p>
+                <button class="btn btn-primary mt-4" onclick="showComingSoon()">Открыть редактор</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ВИД: ЧЕК-ЛИСТЫ -->
+      <section id="view-checklists" class="view-section">
+        <div class="bloom-card mb-6">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 class="text-2xl font-semibold text-gray-blue-800">Чек-листы</h1>
+              <p class="text-gray-500 mt-1">Готовые наборы проверок, сгенерированные из задач.</p>
+            </div>
+            <button class="btn btn-primary text-sm" onclick="showComingSoon()">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+              Новый чек-лист
+            </button>
+          </div>
+        </div>
+
+        <div class="space-y-4">
+          <!-- Пример аккордеона чек-листа -->
+          <div class="bloom-card">
+            <div class="flex items-center justify-between mb-3">
+              <div class="flex items-center gap-3">
+                <h3 class="text-base font-semibold text-gray-blue-800">Чек-лист: Авторизация по SMS</h3>
+                <span class="badge badge-success">12 пунктов</span>
+              </div>
+              <button class="btn btn-secondary text-xs py-1.5 px-2.5" onclick="this.closest('.bloom-card').querySelector('.checklist-body').classList.toggle('open'); this.textContent = this.textContent === 'Развернуть' ? 'Свернуть' : 'Развернуть'">Развернуть</button>
+            </div>
+            <div class="checklist-body open">
+              <div class="space-y-2">
+                <div class="checklist-item">
+                  <div class="flex items-center gap-2">
+                    <input type="checkbox" class="w-4 h-4 rounded border-beige-300 text-bloom-500 focus:ring-bloom-300" checked>
+                    <span class="text-sm text-gray-blue-700">Успешная отправка SMS-кода</span>
+                  </div>
+                </div>
+                <div class="checklist-item">
+                  <div class="flex items-center gap-2">
+                    <input type="checkbox" class="w-4 h-4 rounded border-beige-300 text-bloom-500 focus:ring-bloom-300">
+                    <span class="text-sm text-gray-blue-700">Неверный SMS-код (3 попытки)</span>
+                  </div>
+                </div>
+                <div class="checklist-item">
+                  <div class="flex items-center gap-2">
+                    <input type="checkbox" class="w-4 h-4 rounded border-beige-300 text-bloom-500 focus:ring-bloom-300">
+                    <span class="text-sm text-gray-blue-700">Повторная отправка через 60 сек</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="bloom-card">
+            <div class="flex items-center justify-between mb-3">
+              <div class="flex items-center gap-3">
+                <h3 class="text-base font-semibold text-gray-blue-800">Чек-лист: Перевод между счетами</h3>
+                <span class="badge badge-warning">8 пунктов</span>
+              </div>
+              <button class="btn btn-secondary text-xs py-1.5 px-2.5" onclick="this.closest('.bloom-card').querySelector('.checklist-body').classList.toggle('open'); this.textContent = this.textContent === 'Развернуть' ? 'Свернуть' : 'Развернуть'">Развернуть</button>
+            </div>
+            <div class="checklist-body">
+              <div class="space-y-2">
+                <div class="checklist-item">
+                  <div class="flex items-center gap-2">
+                    <input type="checkbox" class="w-4 h-4 rounded border-beige-300 text-bloom-500 focus:ring-bloom-300">
+                    <span class="text-sm text-gray-blue-700">Успешный перевод внутри банка</span>
+                  </div>
+                </div>
+                <div class="checklist-item">
+                  <div class="flex items-center gap-2">
+                    <input type="checkbox" class="w-4 h-4 rounded border-beige-300 text-bloom-500 focus:ring-bloom-300">
+                    <span class="text-sm text-gray-blue-700">Недостаточно средств</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ВИД: НАСТРОЙКИ -->
+      <section id="view-settings" class="view-section">
+        <div class="bloom-card mb-6">
+          <div>
+            <h1 class="text-2xl font-semibold text-gray-blue-800">Настройки</h1>
+            <p class="text-gray-blue-500 mt-1">Параметры приложения и интеграции.</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="bloom-card">
+            <h2 class="text-base font-semibold text-gray-blue-800 mb-4 flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-bloom-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+              Общие
+            </h2>
+            <div class="space-y-4">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-sm font-medium text-gray-blue-800">Автосохранение черновиков</p>
+                  <p class="text-xs text-gray-blue-500">Сохранять описание задачи в localStorage</p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" class="sr-only peer" checked>
+                  <div class="w-11 h-6 bg-beige-200 peer-focus:ring-2 peer-focus:ring-bloom-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-bloom-400"></div>
+                </label>
+              </div>
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-sm font-medium text-gray-blue-800">Уведомления о генерации</p>
+                  <p class="text-xs text-gray-blue-500">Показывать тост при завершении</p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" class="sr-only peer">
+                  <div class="w-11 h-6 bg-beige-200 peer-focus:ring-2 peer-focus:ring-bloom-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-bloom-400"></div>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="bloom-card">
+            <h2 class="text-base font-semibold text-gray-blue-800 mb-4 flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-bloom-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+              API и интеграции
+            </h2>
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-blue-700 mb-1.5">Бэкенд URL</label>
+                <input type="text" value="/" disabled class="bloom-input text-sm" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-blue-700 mb-1.5">API ключ</label>
+                <div class="flex gap-2">
+                  <input type="password" value="••••••••" disabled class="bloom-input text-sm" />
+                  <button class="btn btn-secondary text-sm" onclick="apiKeyInput.focus()">Изменить</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Toast уведомления -->
+  <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3 pointer-events-none"></div>
+
+  <!-- Модальное окно -->
+  <div id="modal-overlay" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-panel p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h3 id="modal-title" class="text-lg font-semibold text-gray-blue-800">Заголовок</h3>
+        <button id="modal-close" class="p-1.5 rounded-lg hover:bg-lavender-100 text-gray-blue-500 transition-all duration-300">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+        </button>
+      </div>
+      <div id="modal-body" class="text-gray-blue-600 text-sm mb-6"></div>
+      <div class="flex justify-end gap-2">
+        <button id="modal-cancel" class="btn btn-secondary text-sm">Отмена</button>
+        <button id="modal-confirm" class="btn btn-primary text-sm">OK</button>
+      </div>
     </div>
   </div>
 
   <script>
-    // ---------- Общее управление вкладками ----------
-    const tabGenerator = document.getElementById('tab-generator');
-    const tabLibrary = document.getElementById('tab-library');
-    const btnGenerator = document.getElementById('tab-generator-btn');
-    const btnLibrary = document.getElementById('tab-library-btn');
+    // ---------- Навигация и layout ----------
+    const navLinks = document.querySelectorAll('[data-view]');
+    const views = document.querySelectorAll('.view-section');
+    const sidebar = document.getElementById('sidebar');
+    const sidebarToggle = document.getElementById('sidebar-toggle');
+    const sidebarBackdrop = document.getElementById('sidebar-backdrop');
 
-    function activateTabBtn(activeBtn) {
-      [btnGenerator, btnLibrary].forEach(btn => {
-        btn.classList.replace('bg-indigo-500', 'bg-gray-200');
-        btn.classList.replace('text-white', 'text-gray-700');
+    function switchView(view) {
+      views.forEach(v => v.classList.remove('active'));
+      document.getElementById('view-' + view).classList.add('active');
+      navLinks.forEach(link => {
+        link.classList.toggle('active', link.dataset.view === view);
       });
-      activeBtn.classList.replace('bg-gray-200', 'bg-indigo-500');
-      activeBtn.classList.replace('text-gray-700', 'text-white');
+      // Закрываем мобильный сайдбар
+      sidebar.classList.remove('open');
+      sidebarBackdrop.classList.remove('open');
+      // Загружаем данные, если нужно
+      if (view === 'library') loadPagesList();
+      if (view === 'projects') updatePagesHint();
+      // Сайдбар виден всегда (кроме мобильного), но может быть пуст, если проект не выбран
     }
 
-    function switchTab(tab) {
-      tabGenerator.classList.add('hidden');
-      tabLibrary.classList.add('hidden');
-      if (tab === 'generator') {
-        tabGenerator.classList.remove('hidden');
-        activateTabBtn(btnGenerator);
-      } else {
-        tabLibrary.classList.remove('hidden');
-        activateTabBtn(btnLibrary);
-        loadPagesList();
-      }
+    navLinks.forEach(link => {
+      link.addEventListener('click', () => switchView(link.dataset.view));
+    });
+
+    sidebarToggle.addEventListener('click', () => {
+      sidebar.classList.toggle('open');
+      sidebarBackdrop.classList.toggle('open');
+    });
+    sidebarBackdrop.addEventListener('click', () => {
+      sidebar.classList.remove('open');
+      sidebarBackdrop.classList.remove('open');
+    });
+
+    document.getElementById('new-project-btn').addEventListener('click', () => showComingSoon());
+
+    // ---------- Toast ----------
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      const colors = {
+        info: 'bg-lavender-100 text-lavender-800 border-lavender-200',
+        success: 'bg-sage-100 text-sage-800 border-sage-200',
+        error: 'bg-bloom-100 text-bloom-800 border-bloom-200',
+        warning: 'bg-peach-100 text-peach-800 border-peach-200'
+      };
+      toast.className = `pointer-events-auto flex items-center gap-2 px-4 py-3 rounded-2xl border shadow-lg shadow-beige-400/20 text-sm font-medium animate-fade-in-up ${colors[type] || colors.info}`;
+      toast.innerHTML = `<span>${message}</span>`;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(10px)';
+        toast.style.transition = 'all 300ms ease-out';
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
     }
-    btnGenerator.addEventListener('click', () => switchTab('generator'));
-    btnLibrary.addEventListener('click', () => switchTab('library'));
+
+    // ---------- Модальное окно ----------
+    const modalOverlay = document.getElementById('modal-overlay');
+    const modalTitle = document.getElementById('modal-title');
+    const modalBody = document.getElementById('modal-body');
+    const modalConfirm = document.getElementById('modal-confirm');
+    const modalCancel = document.getElementById('modal-cancel');
+    const modalClose = document.getElementById('modal-close');
+    let modalResolve = null;
+
+    function showModal(title, body, confirmText = 'OK', cancelText = 'Отмена', danger = false) {
+      modalTitle.textContent = title;
+      modalBody.innerHTML = body;
+      modalConfirm.textContent = confirmText;
+      modalCancel.textContent = cancelText;
+      modalConfirm.className = danger ? 'btn btn-danger text-sm' : 'btn btn-primary text-sm';
+      modalOverlay.classList.add('open');
+      return new Promise(resolve => { modalResolve = resolve; });
+    }
+    function closeModal(result) {
+      modalOverlay.classList.remove('open');
+      if (modalResolve) modalResolve(result);
+      modalResolve = null;
+    }
+    modalConfirm.addEventListener('click', () => closeModal(true));
+    modalCancel.addEventListener('click', () => closeModal(false));
+    modalClose.addEventListener('click', () => closeModal(false));
+    modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) closeModal(false); });
+
+    function showComingSoon() {
+      showModal('В разработке', 'Этот раздел пока в разработке и будет доступен в следующих обновлениях.', 'Понятно', '', false);
+    }
 
     // ---------- Авторизация ----------
     const apiKeyInput = document.getElementById('api-key-input');
     const verifyApiKeyBtn = document.getElementById('verify-api-key-btn');
     const authInputGroup = document.getElementById('auth-input-group');
-    const authHint = document.getElementById('auth-hint');
     const authSuccess = document.getElementById('auth-success');
 
     let verifiedApiKey = sessionStorage.getItem('apiKey') || '';
 
-    function getApiKey() {
-      return verifiedApiKey;
-    }
-
+    function getApiKey() { return verifiedApiKey; }
     function authHeaders(extra = {}) {
       const headers = { ...extra };
       if (verifiedApiKey) headers['X-API-Key'] = verifiedApiKey;
       return headers;
     }
-
     function showAuthSuccess() {
       authInputGroup.classList.add('hidden');
-      authHint.classList.add('hidden');
       authSuccess.classList.remove('hidden');
+      showToast('API ключ подтверждён', 'success');
     }
-
     function showAuthInput() {
       authInputGroup.classList.remove('hidden');
-      authHint.classList.remove('hidden');
       authSuccess.classList.add('hidden');
     }
 
     async function verifyApiKey() {
       const key = apiKeyInput.value.trim();
-      if (!key) { alert('Введите API ключ'); return; }
+      if (!key) { showToast('Введите API ключ', 'warning'); return; }
+      verifyApiKeyBtn.disabled = true;
+      verifyApiKeyBtn.innerHTML = '<span class="spinner"></span>';
       try {
         const res = await fetch('/auth/check', { method: 'POST', headers: { 'X-API-Key': key } });
         if (res.ok) {
@@ -225,13 +1381,15 @@
         } else {
           verifiedApiKey = '';
           sessionStorage.removeItem('apiKey');
-          alert('Неверный API ключ');
+          showToast('Неверный API ключ', 'error');
         }
       } catch (e) {
-        alert('Ошибка проверки ключа');
+        showToast('Ошибка проверки ключа', 'error');
+      } finally {
+        verifyApiKeyBtn.disabled = false;
+        verifyApiKeyBtn.innerHTML = 'Проверить';
       }
     }
-
     verifyApiKeyBtn.addEventListener('click', verifyApiKey);
     apiKeyInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') verifyApiKey(); });
 
@@ -239,6 +1397,20 @@
       apiKeyInput.value = verifiedApiKey;
       verifyApiKey();
     }
+
+    // ---------- Вспомогательные функции ----------
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    window.insertPlaceholder = function(placeholder) {
+      const textarea = document.getElementById('task-text');
+      textarea.value = textarea.value + ' ' + placeholder;
+      textarea.focus();
+      showToast('Подстановка вставлена', 'info');
+    };
 
     // ---------- Генератор ----------
     const defaultFields = ["Название", "Предусловия", "Шаги", "Ожидаемый результат"];
@@ -253,40 +1425,26 @@
     const pagesHint = document.getElementById('pages-hint');
     const pagesHintList = document.getElementById('pages-hint-list');
 
-    // Элементы чек-листа
     const generateChecklistBtn = document.getElementById('generate-checklist-btn');
     const checklistLoading = document.getElementById('checklist-loading');
     const checklistContainer = document.getElementById('checklist-container');
+    const checklistEmpty = document.getElementById('checklist-empty');
     const toggleAllBtn = document.getElementById('toggle-all-btn');
     const affectedAreasDisplay = document.getElementById('affected-areas-display');
     const affectedAreasList = document.getElementById('affected-areas-list');
 
-    // Состояние чек-листа
     let checklistData = null;
     let selectedChecklistIds = new Set();
-
-    // ---------- Вспомогательные функции ----------
-    function escapeHtml(text) {
-      const div = document.createElement('div');
-      div.textContent = text;
-      return div.innerHTML;
-    }
-
-    window.insertPlaceholder = function(placeholder) {
-      const textarea = document.getElementById('task-text');
-      textarea.value = textarea.value + ' ' + placeholder;
-      textarea.focus();
-    };
 
     // ---------- Управление полями ----------
     function renderFields() {
       fieldsContainer.innerHTML = '';
       fields.forEach((field, index) => {
         const chip = document.createElement('div');
-        chip.className = 'inline-flex items-center bg-indigo-100 text-indigo-800 rounded-full px-3 py-1 text-sm';
-        chip.innerHTML = `<span>${escapeHtml(field)}</span><button class="ml-2 font-bold text-indigo-600 hover:text-red-600" title="Удалить">&times;</button>`;
+        chip.className = 'bloom-chip';
+        chip.innerHTML = `<span>${escapeHtml(field)}</span><button title="Удалить">&times;</button>`;
         chip.querySelector('button').addEventListener('click', () => {
-          if (fields.length <= 1) { alert('Должно остаться хотя бы одно поле'); return; }
+          if (fields.length <= 1) { showToast('Должно остаться хотя бы одно поле', 'warning'); return; }
           fields.splice(index, 1);
           renderFields();
         });
@@ -295,8 +1453,8 @@
     }
     document.getElementById('add-field-btn').addEventListener('click', () => {
       const name = newFieldInput.value.trim();
-      if (!name) { alert('Введите название поля'); return; }
-      if (fields.includes(name)) { alert('Такое поле уже есть'); return; }
+      if (!name) { showToast('Введите название поля', 'warning'); return; }
+      if (fields.includes(name)) { showToast('Такое поле уже есть', 'warning'); return; }
       fields.push(name);
       newFieldInput.value = '';
       renderFields();
@@ -309,12 +1467,14 @@
       try {
         const res = await fetch('/pages/list');
         const pages = await res.json();
+        const count = document.getElementById('pages-count');
+        if (count) count.textContent = `${pages.length} страниц`;
         if (pages.length > 0) {
           pagesHint.classList.remove('hidden');
           pagesHintList.innerHTML = pages.map(p =>
-            `<li class="flex items-center justify-between">
+            `<li class="inline-flex items-center gap-2 bg-ivory-100 hover:bg-ivory-200 text-gray-blue-700 px-2.5 py-1 rounded-xl text-sm transition-colors cursor-pointer" onclick="insertPlaceholder('{{${p.name}}}')">
               <span>{{${p.name}}}</span>
-              <button class="text-xs text-indigo-500 hover:underline" onclick="insertPlaceholder('{{${p.name}}}')">Вставить</button>
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-bloom-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
             </li>`
           ).join('');
         } else {
@@ -339,7 +1499,6 @@
       }
       return ids;
     }
-
     function getColumnIds(cat) {
       if (!checklistData) return [];
       const ids = [];
@@ -350,20 +1509,16 @@
       }
       return ids;
     }
-
     function getAreaIds(cat, area) {
       if (!checklistData) return [];
       const group = (checklistData[cat] || []).find(g => g.area === area);
       return group ? group.items.map(item => item.id) : [];
     }
-
     function updateChecklistUI() {
       const allIds = getAllChecklistIds();
       const total = allIds.length;
       const selected = selectedChecklistIds.size;
-
       toggleAllBtn.textContent = selected === total ? 'Снять всё' : 'Выбрать всё';
-
       for (const cat of ['positive', 'negative']) {
         const colIds = getColumnIds(cat);
         const colCb = document.querySelector(`.column-toggle[data-category="${cat}"]`);
@@ -390,10 +1545,10 @@
           const areaDiv = document.createElement('div');
           areaDiv.className = 'mb-3';
           const header = document.createElement('label');
-          header.className = 'flex items-center gap-2 font-medium text-sm text-gray-700 mb-1 cursor-pointer select-none';
+          header.className = 'flex items-center gap-2 font-medium text-sm text-gray-blue-700 mb-2 cursor-pointer select-none';
           const areaCb = document.createElement('input');
           areaCb.type = 'checkbox';
-          areaCb.className = 'area-toggle';
+          areaCb.className = 'area-toggle w-4 h-4 rounded border-beige-300 text-bloom-500 focus:ring-bloom-300';
           areaCb.dataset.category = cat;
           areaCb.dataset.area = group.area;
           const areaIds = getAreaIds(cat, group.area);
@@ -401,19 +1556,19 @@
           header.appendChild(areaCb);
           header.appendChild(document.createTextNode(' ' + escapeHtml(group.area)));
           const itemsDiv = document.createElement('div');
-          itemsDiv.className = 'space-y-1 ml-4';
+          itemsDiv.className = 'space-y-2 ml-5';
           (group.items || []).forEach(item => {
             const checked = selectedChecklistIds.has(item.id);
             const label = document.createElement('label');
-            label.className = `flex items-center gap-2 text-sm py-0.5 cursor-pointer select-none ${checked ? '' : 'opacity-50'}`;
+            label.className = `checklist-item flex items-center gap-2 text-sm cursor-pointer select-none ${checked ? '' : 'opacity-60'}`;
             label.dataset.id = item.id;
             const cb = document.createElement('input');
             cb.type = 'checkbox';
-            cb.className = 'item-checkbox';
+            cb.className = 'item-checkbox w-4 h-4 rounded border-beige-300 text-bloom-500 focus:ring-bloom-300 flex-shrink-0';
             cb.dataset.id = item.id;
             cb.checked = checked;
             const span = document.createElement('span');
-            span.className = checked ? '' : 'line-through text-gray-400';
+            span.className = checked ? 'text-gray-blue-700' : 'text-gray-blue-400 line-through';
             span.textContent = item.text;
             label.appendChild(cb);
             label.appendChild(span);
@@ -424,7 +1579,6 @@
           container.appendChild(areaDiv);
         });
       }
-      // Affected areas
       if (checklistData.affected_areas && checklistData.affected_areas.length > 0) {
         affectedAreasDisplay.classList.remove('hidden');
         affectedAreasList.textContent = checklistData.affected_areas.join(', ');
@@ -436,23 +1590,20 @@
 
     function handleItemCheck(e) {
       const id = e.target.dataset.id;
-      if (e.target.checked) {
-        selectedChecklistIds.add(id);
-      } else {
-        selectedChecklistIds.delete(id);
-      }
-      const label = e.target.closest('label');
+      if (e.target.checked) selectedChecklistIds.add(id);
+      else selectedChecklistIds.delete(id);
+      const label = e.target.closest('.checklist-item');
       if (label) {
-        label.classList.toggle('opacity-50', !e.target.checked);
-        const span = label.querySelector('span:not(.font-medium)');
+        label.classList.toggle('opacity-60', !e.target.checked);
+        const span = label.querySelector('span');
         if (span) {
           span.classList.toggle('line-through', !e.target.checked);
-          span.classList.toggle('text-gray-400', !e.target.checked);
+          span.classList.toggle('text-gray-blue-400', !e.target.checked);
+          span.classList.toggle('text-gray-blue-700', e.target.checked);
         }
       }
       updateChecklistUI();
     }
-
     function handleAreaToggle(e) {
       const cat = e.target.dataset.category;
       const area = e.target.dataset.area;
@@ -464,7 +1615,6 @@
       });
       renderChecklist();
     }
-
     function handleColumnToggle(e) {
       const cat = e.target.dataset.category;
       const colIds = getColumnIds(cat);
@@ -476,37 +1626,30 @@
       renderChecklist();
     }
 
-    // События для чек-листа (делегирование)
     document.addEventListener('change', (e) => {
-      if (e.target.classList.contains('item-checkbox')) {
-        handleItemCheck(e);
-      } else if (e.target.classList.contains('area-toggle')) {
-        handleAreaToggle(e);
-      } else if (e.target.classList.contains('column-toggle')) {
-        handleColumnToggle(e);
-      }
+      if (e.target.classList.contains('item-checkbox')) handleItemCheck(e);
+      else if (e.target.classList.contains('area-toggle')) handleAreaToggle(e);
+      else if (e.target.classList.contains('column-toggle')) handleColumnToggle(e);
     });
 
     toggleAllBtn.addEventListener('click', () => {
       const allIds = getAllChecklistIds();
       const allSelected = allIds.length > 0 && allIds.every(id => selectedChecklistIds.has(id));
-      if (allSelected) {
-        selectedChecklistIds.clear();
-      } else {
-        allIds.forEach(id => selectedChecklistIds.add(id));
-      }
+      if (allSelected) selectedChecklistIds.clear();
+      else allIds.forEach(id => selectedChecklistIds.add(id));
       renderChecklist();
     });
 
     // ---------- Генерация чек-листа ----------
     async function generateChecklist() {
       const text = taskText.value.trim();
-      if (!text) { alert('Введите описание задачи'); return; }
+      if (!text) { showToast('Введите описание задачи', 'warning'); return; }
       const key = getApiKey();
-      if (!key) { alert('Введите и проверьте API ключ'); apiKeyInput.focus(); return; }
+      if (!key) { showToast('Введите и проверьте API ключ', 'warning'); apiKeyInput.focus(); return; }
       generateChecklistBtn.disabled = true;
       checklistLoading.classList.remove('hidden');
       checklistContainer.classList.add('hidden');
+      checklistEmpty.classList.add('hidden');
       try {
         const res = await fetch('/generate-checklist', {
           method: 'POST',
@@ -519,15 +1662,16 @@
         }
         const data = await res.json();
         checklistData = data.checklist;
-
         selectedChecklistIds.clear();
         getAllChecklistIds().forEach(id => selectedChecklistIds.add(id));
-
         renderChecklist();
         checklistContainer.classList.remove('hidden');
+        toggleAllBtn.classList.remove('hidden');
+        showToast('Чек-лист сформирован', 'success');
       } catch (err) {
         checklistContainer.classList.add('hidden');
-        alert('Ошибка формирования чек-листа: ' + err.message);
+        checklistEmpty.classList.remove('hidden');
+        showToast('Ошибка формирования чек-листа: ' + err.message, 'error');
       } finally {
         generateChecklistBtn.disabled = false;
         checklistLoading.classList.add('hidden');
@@ -538,30 +1682,23 @@
     // ---------- Генерация тест-кейсов ----------
     async function generateTestCases() {
       const text = taskText.value.trim();
-      if (!text) { alert('Введите описание задачи'); return; }
+      if (!text) { showToast('Введите описание задачи', 'warning'); return; }
       const key = getApiKey();
-      if (!key) { alert('Введите и проверьте API ключ'); apiKeyInput.focus(); return; }
+      if (!key) { showToast('Введите и проверьте API ключ', 'warning'); apiKeyInput.focus(); return; }
 
-      // Собираем выбранные пункты чек-листа, если они есть
       let selectedItems = [];
       if (checklistData && selectedChecklistIds.size > 0) {
         for (const cat of ['positive', 'negative']) {
           for (const group of (checklistData[cat] || [])) {
             for (const item of (group.items || [])) {
               if (selectedChecklistIds.has(item.id)) {
-                selectedItems.push({
-                  id: item.id,
-                  text: item.text,
-                  category: cat,
-                  area: group.area
-                });
+                selectedItems.push({ id: item.id, text: item.text, category: cat, area: group.area });
               }
             }
           }
         }
       }
 
-      // Если есть выбранные пункты, добавляем поле "Тип"
       let genFields = [...fields];
       if (selectedItems.length > 0 && !genFields.includes('Тип')) {
         genFields.push('Тип');
@@ -569,17 +1706,12 @@
 
       loadingMsg.classList.remove('hidden');
       generateBtn.disabled = true;
-      resultContainer.innerHTML = '';
+      resultContainer.innerHTML = '<div class="skeleton h-24 w-full mb-3"></div><div class="skeleton h-24 w-full mb-3"></div><div class="skeleton h-24 w-full"></div>';
       copyBtn.classList.add('hidden');
 
       try {
-        const payload = {
-          task_text: text,
-          fields: genFields
-        };
-        if (selectedItems.length > 0) {
-          payload.checklist_items = selectedItems;
-        }
+        const payload = { task_text: text, fields: genFields };
+        if (selectedItems.length > 0) payload.checklist_items = selectedItems;
 
         const response = await fetch('/generate', {
           method: 'POST',
@@ -592,22 +1724,25 @@
         }
         const data = await response.json();
         if (!data.test_cases || data.test_cases.length === 0) {
-          resultContainer.innerHTML = '<p class="text-gray-500">Модель не вернула тест-кейсы.</p>';
+          resultContainer.innerHTML = '<p class="text-gray-blue-500 text-center py-8">Модель не вернула тест-кейсы.</p>';
           return;
         }
         let html = '';
         data.test_cases.forEach((tc, i) => {
-          html += `<div class="mb-4 p-3 bg-white rounded shadow-sm border-l-4 border-indigo-400"><p class="font-medium text-gray-700 mb-1">Тест-кейс #${i+1}</p>`;
+          html += `<div class="test-case-card animate-fade-in-up" style="animation-delay: ${i * 0.05}s">`;
+          html += `<p class="font-semibold text-gray-blue-800 mb-2 flex items-center gap-2"><span class="w-6 h-6 rounded-full bg-bloom-100 text-bloom-600 flex items-center justify-center text-xs">${i+1}</span> Тест-кейс</p>`;
           for (const [key, val] of Object.entries(tc)) {
-            html += `<p class="text-sm"><span class="font-semibold text-gray-600">${key}:</span> ${escapeHtml(String(val))}</p>`;
+            html += `<div class="mb-1.5"><p class="text-xs font-medium text-gray-blue-500 uppercase tracking-wide">${escapeHtml(key)}</p><p class="text-sm text-gray-blue-800">${escapeHtml(String(val))}</p></div>`;
           }
           html += `</div>`;
         });
         resultContainer.innerHTML = html;
         copyBtn.classList.remove('hidden');
         copyBtn.dataset.json = JSON.stringify(data.test_cases, null, 2);
+        showToast(`Сгенерировано ${data.test_cases.length} тест-кейсов`, 'success');
       } catch (err) {
-        resultContainer.innerHTML = `<p class="text-red-600">${escapeHtml(err.message)}</p>`;
+        resultContainer.innerHTML = `<p class="text-bloom-600 text-center py-8">${escapeHtml(err.message)}</p>`;
+        showToast('Ошибка генерации тест-кейсов', 'error');
       } finally {
         loadingMsg.classList.add('hidden');
         generateBtn.disabled = false;
@@ -621,8 +1756,8 @@
       if (!json) return;
       try {
         await navigator.clipboard.writeText(json);
-        alert('JSON скопирован!');
-      } catch { alert('Не удалось скопировать'); }
+        showToast('JSON скопирован в буфер обмена', 'success');
+      } catch { showToast('Не удалось скопировать', 'error'); }
     });
 
     // ---------- Библиотека страниц ----------
@@ -636,40 +1771,45 @@
       try {
         const res = await fetch('/pages/list');
         const pages = await res.json();
+        const count = document.getElementById('pages-count');
+        if (count) count.textContent = `${pages.length} страниц`;
         if (pages.length === 0) {
-          pagesListDiv.innerHTML = '<p class="text-gray-500">Нет загруженных страниц</p>';
+          pagesListDiv.innerHTML = '<div class="text-center py-10"><div class="w-14 h-14 rounded-2xl bg-ivory-100 text-gray-blue-400 flex items-center justify-center mx-auto mb-3"><svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div><p class="text-sm text-gray-blue-500">Нет загруженных страниц</p></div>';
         } else {
-          pagesListDiv.innerHTML = pages.map(p => `
-            <div class="flex items-center justify-between border p-3 rounded bg-white">
-              <div>
-                <p class="font-medium">${escapeHtml(p.name)}</p>
-                <p class="text-sm text-gray-600">${escapeHtml(p.description)}</p>
+          pagesListDiv.innerHTML = pages.map((p, i) => `
+            <div class="flex items-center justify-between p-3 bg-ivory-50/70 rounded-2xl border border-beige-200/50 hover:shadow-md hover:shadow-beige-400/20 hover:-translate-y-0.5 transition-all duration-300 animate-fade-in-up" style="animation-delay: ${i * 0.05}s">
+              <div class="min-w-0">
+                <p class="font-medium text-gray-blue-800 truncate">${escapeHtml(p.name)}</p>
+                <p class="text-sm text-gray-blue-500 truncate">${escapeHtml(p.description)}</p>
               </div>
-              <button onclick="deletePage('${p.name}')" class="text-red-500 hover:text-red-700" title="Удалить">&times;</button>
+              <div class="flex items-center gap-2 flex-shrink-0">
+                <button onclick="insertPlaceholder('{{${p.name}}}')" class="btn btn-secondary text-xs py-1.5 px-2.5" title="Вставить в задачу">Вставить</button>
+                <button onclick="deletePage('${p.name}')" class="w-8 h-8 flex items-center justify-center rounded-xl text-bloom-500 hover:bg-bloom-100 transition-all duration-300" title="Удалить">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                </button>
+              </div>
             </div>
           `).join('');
         }
         updatePagesHint();
       } catch (e) {
-        pagesListDiv.innerHTML = '<p class="text-red-500">Ошибка загрузки списка</p>';
+        pagesListDiv.innerHTML = '<p class="text-bloom-600 text-center py-8">Ошибка загрузки списка</p>';
       }
     }
 
     async function uploadPage() {
       const file = pageImage.files[0];
       const name = pageName.value.trim();
-      if (!file || !name) {
-        alert('Выберите изображение и укажите имя');
-        return;
-      }
+      if (!file || !name) { showToast('Выберите изображение и укажите имя', 'warning'); return; }
       const key = getApiKey();
-      if (!key) { alert('Введите и проверьте API ключ'); apiKeyInput.focus(); return; }
+      if (!key) { showToast('Введите и проверьте API ключ', 'warning'); apiKeyInput.focus(); return; }
       const formData = new FormData();
       formData.append('file', file);
       formData.append('name', name);
       uploadStatus.classList.remove('hidden');
       uploadStatus.textContent = 'Загрузка...';
       uploadBtn.disabled = true;
+      uploadBtn.innerHTML = '<span class="spinner"></span> Загрузка...';
       try {
         const res = await fetch('/pages/upload', {
           method: 'POST',
@@ -681,29 +1821,60 @@
           throw new Error(err.detail || err.error || 'Ошибка');
         }
         uploadStatus.textContent = 'Страница успешно добавлена!';
+        uploadStatus.className = 'text-sm text-sage-700 font-medium text-center';
         pageName.value = '';
         pageImage.value = '';
         loadPagesList();
+        showToast('Страница добавлена', 'success');
       } catch (e) {
         uploadStatus.textContent = `Ошибка: ${e.message}`;
+        uploadStatus.className = 'text-sm text-bloom-700 text-center';
+        showToast('Ошибка загрузки страницы', 'error');
       } finally {
         uploadBtn.disabled = false;
+        uploadBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg> Загрузить и распознать';
         setTimeout(() => { uploadStatus.classList.add('hidden'); }, 3000);
       }
     }
 
     window.deletePage = async function(name) {
-      if (!confirm(`Удалить страницу "${name}"?`)) return;
+      const ok = await showModal('Удалить страницу?', `Вы уверены, что хотите удалить страницу «${name}»?`, 'Удалить', 'Отмена', true);
+      if (!ok) return;
       try {
         await fetch(`/pages/${encodeURIComponent(name)}`, { method: 'DELETE' });
         loadPagesList();
+        showToast('Страница удалена', 'success');
       } catch (e) {
-        alert('Ошибка удаления');
+        showToast('Ошибка удаления', 'error');
       }
     }
 
     uploadBtn.addEventListener('click', uploadPage);
     loadPagesList();
+
+    // ---------- Дерево (раскрытие/сворачивание) ----------
+    document.addEventListener('click', (e) => {
+      const toggle = e.target.closest('.tree-toggle');
+      if (!toggle) return;
+      e.stopPropagation();
+      const node = toggle.closest('.tree-node');
+      const children = node.querySelector(':scope > .tree-children');
+      if (children) {
+        toggle.classList.toggle('expanded');
+        if (children.style.maxHeight && children.style.maxHeight !== '0px') {
+          children.style.maxHeight = '0px';
+        } else {
+          children.style.maxHeight = children.scrollHeight + 'px';
+        }
+      }
+    });
+
+    // ---------- Автосохранение описания задачи ----------
+    const savedTask = localStorage.getItem('draftTask');
+    if (savedTask) taskText.value = savedTask;
+    taskText.addEventListener('input', () => {
+      localStorage.setItem('draftTask', taskText.value);
+    });
   </script>
 </body>
 </html>
