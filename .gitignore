@@ -17,3 +17,6 @@ __pycache__/
 
 # Загруженные изображения
 backend/static/uploads/
+
+# SQLite базы данных
+*.db
