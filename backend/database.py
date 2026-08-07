@@ -356,6 +356,88 @@ def get_checklists_by_requirement(requirement_id: int) -> list[dict]:
     ]
 
 
+def get_checklist_by_id(checklist_id: int) -> Optional[dict]:
+    conn = sqlite3.connect(DB_PATH)
+    row = conn.execute(
+        "SELECT id, requirement_id, items_json, created_at FROM checklists WHERE id = ?",
+        (checklist_id,),
+    ).fetchone()
+    conn.close()
+    if not row:
+        return None
+    return {
+        "id": row[0],
+        "requirement_id": row[1],
+        "items": json.loads(row[2]),
+        "created_at": row[3],
+    }
+
+
+def create_checklist_dict(requirement_id: int, items: dict) -> dict:
+    """Создаёт чек-лист, сохраняя items как JSON-объект (positive/negative)."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("PRAGMA foreign_keys = ON")
+    cursor = conn.execute(
+        "INSERT INTO checklists (requirement_id, items_json) VALUES (?, ?) RETURNING id, requirement_id, items_json, created_at",
+        (requirement_id, json.dumps(items, ensure_ascii=False)),
+    )
+    row = cursor.fetchone()
+    conn.commit()
+    conn.close()
+    return {
+        "id": row[0],
+        "requirement_id": row[1],
+        "items": json.loads(row[2]),
+        "created_at": row[3],
+    }
+
+
+def update_checklist(checklist_id: int, items: dict) -> Optional[dict]:
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("PRAGMA foreign_keys = ON")
+    cursor = conn.execute(
+        "UPDATE checklists SET items_json = ? WHERE id = ? RETURNING id, requirement_id, items_json, created_at",
+        (json.dumps(items, ensure_ascii=False), checklist_id),
+    )
+    row = cursor.fetchone()
+    conn.commit()
+    conn.close()
+    if not row:
+        return None
+    return {
+        "id": row[0],
+        "requirement_id": row[1],
+        "items": json.loads(row[2]),
+        "created_at": row[3],
+    }
+
+
+def delete_checklist(checklist_id: int) -> bool:
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("PRAGMA foreign_keys = ON")
+    cursor = conn.execute("DELETE FROM checklists WHERE id = ?", (checklist_id,))
+    conn.commit()
+    conn.close()
+    return cursor.rowcount > 0
+
+
+def get_requirement_by_id(requirement_id: int) -> Optional[dict]:
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    row = conn.execute(
+        """
+        SELECT id, project_id, parent_id, code, title, description, section_path, sort_order
+        FROM requirements
+        WHERE id = ?
+        """,
+        (requirement_id,),
+    ).fetchone()
+    conn.close()
+    if not row:
+        return None
+    return dict(row)
+
+
 # ---------- CRUD для тест-кейсов ----------
 
 def create_testcase(
@@ -400,6 +482,123 @@ def create_testcase(
         "include_in_pmi": bool(row[7]),
         "created_at": row[8],
     }
+
+
+def get_testcase_by_id(testcase_id: int) -> Optional[dict]:
+    conn = sqlite3.connect(DB_PATH)
+    row = conn.execute(
+        """
+        SELECT id, checklist_item_id, checklist_id, requirement_id, title, steps, expected_result, include_in_pmi, created_at
+        FROM testcases
+        WHERE id = ?
+        """,
+        (testcase_id,),
+    ).fetchone()
+    conn.close()
+    if not row:
+        return None
+    return {
+        "id": row[0],
+        "checklist_item_id": row[1],
+        "checklist_id": row[2],
+        "requirement_id": row[3],
+        "title": row[4],
+        "steps": row[5],
+        "expected_result": row[6],
+        "include_in_pmi": bool(row[7]),
+        "created_at": row[8],
+    }
+
+
+def get_testcases_by_checklist(checklist_id: int) -> list[dict]:
+    conn = sqlite3.connect(DB_PATH)
+    rows = conn.execute(
+        """
+        SELECT id, checklist_item_id, checklist_id, requirement_id, title, steps, expected_result, include_in_pmi, created_at
+        FROM testcases
+        WHERE checklist_id = ?
+        ORDER BY id
+        """,
+        (checklist_id,),
+    ).fetchall()
+    conn.close()
+    return [
+        {
+            "id": r[0],
+            "checklist_item_id": r[1],
+            "checklist_id": r[2],
+            "requirement_id": r[3],
+            "title": r[4],
+            "steps": r[5],
+            "expected_result": r[6],
+            "include_in_pmi": bool(r[7]),
+            "created_at": r[8],
+        }
+        for r in rows
+    ]
+
+
+def update_testcase(
+    testcase_id: int,
+    title: Optional[str] = None,
+    steps: Optional[str] = None,
+    expected_result: Optional[str] = None,
+    include_in_pmi: Optional[bool] = None,
+) -> Optional[dict]:
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("PRAGMA foreign_keys = ON")
+    fields = []
+    params = []
+    if title is not None:
+        fields.append("title = ?")
+        params.append(title)
+    if steps is not None:
+        fields.append("steps = ?")
+        params.append(steps)
+    if expected_result is not None:
+        fields.append("expected_result = ?")
+        params.append(expected_result)
+    if include_in_pmi is not None:
+        fields.append("include_in_pmi = ?")
+        params.append(int(include_in_pmi))
+    if not fields:
+        conn.close()
+        return get_testcase_by_id(testcase_id)
+    params.append(testcase_id)
+    cursor = conn.execute(
+        f"""
+        UPDATE testcases
+        SET {', '.join(fields)}
+        WHERE id = ?
+        RETURNING id, checklist_item_id, checklist_id, requirement_id, title, steps, expected_result, include_in_pmi, created_at
+        """,
+        params,
+    )
+    row = cursor.fetchone()
+    conn.commit()
+    conn.close()
+    if not row:
+        return None
+    return {
+        "id": row[0],
+        "checklist_item_id": row[1],
+        "checklist_id": row[2],
+        "requirement_id": row[3],
+        "title": row[4],
+        "steps": row[5],
+        "expected_result": row[6],
+        "include_in_pmi": bool(row[7]),
+        "created_at": row[8],
+    }
+
+
+def delete_testcase(testcase_id: int) -> bool:
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("PRAGMA foreign_keys = ON")
+    cursor = conn.execute("DELETE FROM testcases WHERE id = ?", (testcase_id,))
+    conn.commit()
+    conn.close()
+    return cursor.rowcount > 0
 
 
 def get_testcases_by_requirement(requirement_id: int) -> list[dict]:

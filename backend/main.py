@@ -83,9 +83,11 @@ async def check_auth(api_key: str = Depends(verify_api_key)):
 # ----------- Роутеры ----------
 from .pages import router as pages_router
 from .projects import router as projects_router
+from .checklists import router as checklists_router
 
 app.include_router(pages_router)
 app.include_router(projects_router)
+app.include_router(checklists_router)
 
 
 # ----------- Модели для генерации ----------
