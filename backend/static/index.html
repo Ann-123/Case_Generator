@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DocFlow QA — Управление проектами</title>
+  <title>DocFlow QA — Проекты и требования</title>
 
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -113,11 +113,23 @@
     .btn-secondary {
       @apply bg-white text-gray-blue-700 px-5 py-2.5 rounded-2xl shadow-sm shadow-beige-300/30 border border-beige-200 transition-all duration-300 hover:bg-beige-50 hover:shadow-md hover:-translate-y-0.5 active:scale-95;
     }
+    .btn-danger {
+      @apply bg-white text-bloom-600 px-4 py-2 rounded-2xl shadow-sm shadow-beige-300/30 border border-beige-200 transition-all duration-300 hover:bg-bloom-50 hover:shadow-md active:scale-95;
+    }
     .input-field {
       @apply w-full px-4 py-2.5 rounded-2xl bg-white/80 border border-beige-200 focus:ring-2 focus:ring-bloom-300 focus:border-bloom-300 outline-none text-gray-blue-800 placeholder-gray-blue-400 transition-all;
     }
     .textarea-field {
       @apply w-full px-4 py-3 rounded-2xl bg-white/80 border border-beige-200 focus:ring-2 focus:ring-bloom-300 focus:border-bloom-300 outline-none text-gray-blue-800 placeholder-gray-blue-400 transition-all resize-y;
+    }
+    .checklist-item {
+      @apply border-l-4 border-bloom-300 pl-4 py-2 hover:bg-lavender-50 cursor-pointer transition-all duration-200;
+    }
+    .checklist-item-positive {
+      @apply border-l-4 border-sage-400 pl-4 py-2 hover:bg-lavender-50 cursor-pointer transition-all duration-200;
+    }
+    .checklist-item-negative {
+      @apply border-l-4 border-bloom-400 pl-4 py-2 hover:bg-lavender-50 cursor-pointer transition-all duration-200;
     }
     /* Плавные переходы вида */
     [x-cloak] { display: none !important; }
@@ -129,6 +141,8 @@
   <script defer src="js/api.js"></script>
   <script defer src="js/app.js"></script>
   <script defer src="js/projects.js"></script>
+  <script defer src="js/requirements.js"></script>
+  <script defer src="js/checklists.js"></script>
 </head>
 <body class="bg-beige-50 text-gray-blue-800 antialiased min-h-screen" x-data="{}" x-init="$store.docflow.init()">
 
@@ -182,7 +196,7 @@
         <button
           @click="$store.docflow.showProjects()"
           class="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-left transition-colors"
-          :class="$store.docflow.currentView === 'projects' || $store.docflow.currentView === 'project' ? 'bg-bloom-100 text-bloom-700' : 'text-gray-blue-600 hover:bg-beige-100'"
+          :class="$store.docflow.currentView === 'projects' ? 'bg-bloom-100 text-bloom-700' : 'text-gray-blue-600 hover:bg-beige-100'"
         >
           <span>📁</span>
           <span class="font-medium">Проекты</span>
@@ -221,7 +235,7 @@
         <button
           @click="$store.docflow.showProjects()"
           class="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-left transition-colors"
-          :class="$store.docflow.currentView === 'projects' || $store.docflow.currentView === 'project' ? 'bg-bloom-100 text-bloom-700' : 'text-gray-blue-600 hover:bg-beige-100'"
+          :class="$store.docflow.currentView === 'projects' ? 'bg-bloom-100 text-bloom-700' : 'text-gray-blue-600 hover:bg-beige-100'"
         >
           <span>📁</span>
           <span class="font-medium">Проекты</span>
@@ -250,7 +264,7 @@
           </button>
           <h2
             class="text-lg md:text-xl font-semibold text-gray-blue-800"
-            x-text="$store.docflow.currentView === 'project' && $store.docflow.currentProject ? $store.docflow.currentProject.name : 'Проекты'"
+            x-text="$store.docflow.currentView === 'project' && $store.docflow.currentProject ? 'Проект: ' + $store.docflow.currentProject.name : 'Проекты'"
           ></h2>
         </div>
         <button @click="$store.docflow.logout()" class="hidden md:flex btn-secondary items-center gap-2 text-sm py-2 px-4">
@@ -352,87 +366,400 @@
           </div>
         </div>
 
-        <!-- ---------- Детали проекта ---------- -->
+        <!-- ---------- Рабочая область проекта ---------- -->
         <div
           x-show="$store.docflow.currentView === 'project'"
-          x-data="projectDetail"
           x-cloak
-          class="space-y-6"
+          class="flex flex-col md:flex-row gap-4 h-[calc(100vh-8rem)]"
+          x-data="requirementsTree"
         >
-          <!-- Кнопка назад -->
-          <button @click="$store.docflow.showProjects()" class="btn-secondary text-sm flex items-center gap-2">
-            <span>←</span>
-            <span>К проектам</span>
-          </button>
-
-          <div class="card">
-            <h3 class="text-xl font-bold text-gray-blue-800 mb-4 flex items-center gap-2">
-              <span>📄</span>
-              <span>Техническое задание</span>
-            </h3>
-
-            <!-- Режим ввода -->
-            <div class="flex items-center gap-4 mb-4">
-              <label class="inline-flex items-center gap-2 cursor-pointer">
-                <input type="radio" x-model="tzMode" value="text" class="accent-bloom-500">
-                <span class="text-sm text-gray-blue-700">Текст</span>
-              </label>
-              <label class="inline-flex items-center gap-2 cursor-pointer">
-                <input type="radio" x-model="tzMode" value="file" class="accent-bloom-500">
-                <span class="text-sm text-gray-blue-700">Файл .docx</span>
-              </label>
-            </div>
-
-            <!-- Текстовое ТЗ -->
-            <div x-show="tzMode === 'text'" class="mb-4">
-              <label for="tz-text" class="sr-only">Текст технического задания</label>
-              <textarea
-                id="tz-text"
-                x-model="tzText"
-                rows="10"
-                class="textarea-field"
-                placeholder="Введите текст технического задания..."
-              ></textarea>
-            </div>
-
-            <!-- Загрузка файла -->
-            <div x-show="tzMode === 'file'" class="mb-4">
-              <label for="tz-file" class="block text-sm font-medium text-gray-blue-700 mb-2">Файл .docx</label>
-              <input
-                id="tz-file"
-                type="file"
-                accept=".docx"
-                @change="handleFileChange($event)"
-                class="block w-full text-sm text-gray-blue-700 file:mr-4 file:py-2.5 file:px-4 file:rounded-2xl file:border-0 file:bg-bloom-100 file:text-bloom-700 hover:file:bg-bloom-200"
+          <!-- Левая панель: дерево ЧТЗ -->
+          <aside class="w-full md:w-64 flex-shrink-0 card flex flex-col h-full overflow-hidden">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="font-bold text-gray-blue-800 flex items-center gap-2">
+                <span>🌳</span>
+                <span>ЧТЗ</span>
+              </h3>
+              <button
+                @click="refreshTree()"
+                class="text-sm text-gray-blue-600 hover:text-bloom-600 p-2 rounded-xl hover:bg-lavender-50"
+                aria-label="Обновить дерево"
+                title="Обновить дерево"
               >
-              <p x-show="tzFileName" class="mt-2 text-sm text-gray-blue-600" x-text="'Выбран: ' + tzFileName"></p>
-            </div>
-
-            <!-- Ошибка -->
-            <div x-show="$store.docflow.error" class="text-bloom-600 text-sm mb-4" x-text="$store.docflow.error"></div>
-
-            <!-- Кнопки -->
-            <div class="flex flex-wrap items-center gap-3">
-              <button @click="uploadTZ()" class="btn-primary flex items-center gap-2" :disabled="$store.docflow.loading">
-                <span x-show="$store.docflow.loading" class="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span>
-                <span>Сохранить ТЗ</span>
-              </button>
-
-              <button @click="generateChtz()" class="btn-secondary flex items-center gap-2" :disabled="$store.docflow.loading">
-                <span>⚡</span>
-                <span>Сгенерировать ЧТЗ</span>
+                🔄
               </button>
             </div>
-          </div>
 
-          <!-- Сохранённое ТЗ -->
-          <div x-show="$store.docflow.currentProject?.tz_text" class="card">
-            <h4 class="text-lg font-bold text-gray-blue-800 mb-3">Сохранённое ТЗ</h4>
-            <div class="bg-white/60 rounded-2xl p-4 border border-beige-200/50 max-h-96 overflow-auto">
-              <pre class="whitespace-pre-wrap text-sm text-gray-blue-700 font-sans" x-text="$store.docflow.currentProject?.tz_text"></pre>
+            <div class="flex-1 overflow-auto space-y-1 pr-1">
+              <template x-for="section in $store.docflow.requirementsTree" :key="section.id">
+                <div>
+                  <button
+                    @click="toggleSection(section); selectSection(section)"
+                    class="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left text-sm font-medium transition-colors"
+                    :class="isSectionActive(section) ? 'bg-lavender-100 text-lavender-900' : 'hover:bg-lavender-50 text-gray-blue-700'"
+                  >
+                    <span x-text="isExpanded(section) ? '▼' : '▶'" class="text-xs text-gray-blue-400"></span>
+                    <span x-text="section.title" class="truncate"></span>
+                  </button>
+
+                  <div x-show="isExpanded(section)" x-cloak class="pl-6 space-y-1 mt-1">
+                    <template x-for="req in section.children" :key="req.id">
+                      <button
+                        @click="selectRequirement(req)"
+                        class="w-full text-left px-3 py-2 rounded-xl text-sm transition-colors"
+                        :class="isRequirementActive(req) ? 'bg-lavender-100 text-lavender-900' : 'hover:bg-lavender-50 text-gray-blue-600'"
+                      >
+                        <span class="font-medium" x-text="req.code || 'ФТ'"></span>:
+                        <span x-text="req.title" class="truncate"></span>
+                      </button>
+                    </template>
+                  </div>
+                </div>
+              </template>
+
+              <!-- Пустое дерево -->
+              <div x-show="$store.docflow.requirementsTree.length === 0" class="text-center py-8 text-gray-blue-500">
+                <p class="text-sm mb-3">Дерево требований пусто</p>
+                <button @click="regenerateChtz()" class="btn-primary text-sm px-4 py-2">Сгенерировать ЧТЗ</button>
+              </div>
             </div>
-            <p x-show="$store.docflow.currentProject?.tz_filename" class="mt-2 text-sm text-gray-blue-500" x-text="'Файл: ' + $store.docflow.currentProject?.tz_filename"></p>
-          </div>
+          </aside>
+
+          <!-- Основная область -->
+          <section class="flex-1 min-w-0 h-full overflow-auto card" x-data="requirementView">
+
+            <!-- Обзор проекта / ТЗ -->
+            <div x-show="!$store.docflow.selectedSection && !$store.docflow.selectedRequirement" x-cloak>
+              <div class="flex items-center justify-between mb-6">
+                <button @click="$store.docflow.showProjects()" class="btn-secondary text-sm flex items-center gap-2">
+                  <span>←</span>
+                  <span>К проектам</span>
+                </button>
+                <button @click="$store.docflow.generateChtz()" class="btn-secondary text-sm flex items-center gap-2">
+                  <span>⚡</span>
+                  <span>Сгенерировать ЧТЗ</span>
+                </button>
+              </div>
+
+              <div x-data="projectDetail" class="space-y-6">
+                <div class="card">
+                  <h3 class="text-xl font-bold text-gray-blue-800 mb-4 flex items-center gap-2">
+                    <span>📄</span>
+                    <span>Техническое задание</span>
+                  </h3>
+
+                  <div class="flex items-center gap-4 mb-4">
+                    <label class="inline-flex items-center gap-2 cursor-pointer">
+                      <input type="radio" x-model="tzMode" value="text" class="accent-bloom-500">
+                      <span class="text-sm text-gray-blue-700">Текст</span>
+                    </label>
+                    <label class="inline-flex items-center gap-2 cursor-pointer">
+                      <input type="radio" x-model="tzMode" value="file" class="accent-bloom-500">
+                      <span class="text-sm text-gray-blue-700">Файл .docx</span>
+                    </label>
+                  </div>
+
+                  <div x-show="tzMode === 'text'" class="mb-4">
+                    <label for="tz-text" class="sr-only">Текст технического задания</label>
+                    <textarea
+                      id="tz-text"
+                      x-model="tzText"
+                      rows="10"
+                      class="textarea-field"
+                      placeholder="Введите текст технического задания..."
+                    ></textarea>
+                  </div>
+
+                  <div x-show="tzMode === 'file'" class="mb-4">
+                    <label for="tz-file" class="block text-sm font-medium text-gray-blue-700 mb-2">Файл .docx</label>
+                    <input
+                      id="tz-file"
+                      type="file"
+                      accept=".docx"
+                      @change="handleFileChange($event)"
+                      class="block w-full text-sm text-gray-blue-700 file:mr-4 file:py-2.5 file:px-4 file:rounded-2xl file:border-0 file:bg-bloom-100 file:text-bloom-700 hover:file:bg-bloom-200"
+                    >
+                    <p x-show="tzFileName" class="mt-2 text-sm text-gray-blue-600" x-text="'Выбран: ' + tzFileName"></p>
+                  </div>
+
+                  <div x-show="$store.docflow.error" class="text-bloom-600 text-sm mb-4" x-text="$store.docflow.error"></div>
+
+                  <button @click="uploadTZ()" class="btn-primary flex items-center gap-2" :disabled="$store.docflow.loading">
+                    <span x-show="$store.docflow.loading" class="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span>
+                    <span>Сохранить ТЗ</span>
+                  </button>
+                </div>
+
+                <div x-show="$store.docflow.currentProject?.tz_text" class="card">
+                  <h4 class="text-lg font-bold text-gray-blue-800 mb-3">Сохранённое ТЗ</h4>
+                  <div class="bg-white/60 rounded-2xl p-4 border border-beige-200/50 max-h-96 overflow-auto">
+                    <pre class="whitespace-pre-wrap text-sm text-gray-blue-700 font-sans" x-text="$store.docflow.currentProject?.tz_text"></pre>
+                  </div>
+                  <p x-show="$store.docflow.currentProject?.tz_filename" class="mt-2 text-sm text-gray-blue-500" x-text="'Файл: ' + $store.docflow.currentProject?.tz_filename"></p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Выбран раздел -->
+            <div x-show="$store.docflow.selectedSection" x-cloak>
+              <div class="flex items-center gap-3 mb-6">
+                <button @click="$store.docflow.clearSelection()" class="btn-secondary text-sm flex items-center gap-2">
+                  <span>←</span>
+                  <span>Назад</span>
+                </button>
+                <h3 class="text-2xl font-bold text-gray-blue-800" x-text="$store.docflow.selectedSection.title"></h3>
+                <span class="text-sm text-gray-blue-500">(раздел)</span>
+              </div>
+
+              <div class="space-y-3">
+                <h4 class="font-semibold text-gray-blue-700">Требования раздела</h4>
+                <template x-for="req in $store.docflow.selectedSection.children" :key="req.id">
+                  <div
+                    @click="$store.docflow.selectRequirement(req)"
+                    class="p-4 rounded-2xl border border-beige-200 bg-white/60 hover:bg-lavender-50 cursor-pointer transition-colors"
+                  >
+                    <div class="font-medium text-gray-blue-800">
+                      <span x-text="req.code || 'ФТ'"></span>: <span x-text="req.title"></span>
+                    </div>
+                    <div x-show="req.description" class="text-sm text-gray-blue-600 mt-1 line-clamp-2" x-text="req.description"></div>
+                  </div>
+                </template>
+                <div x-show="!$store.docflow.selectedSection.children?.length" class="text-gray-blue-500 text-sm">
+                  В этом разделе пока нет требований.
+                </div>
+              </div>
+            </div>
+
+            <!-- Выбрано требование -->
+            <div x-show="$store.docflow.selectedRequirement" x-cloak>
+              <div class="flex items-center gap-3 mb-6">
+                <button @click="$store.docflow.clearSelection()" class="btn-secondary text-sm flex items-center gap-2">
+                  <span>←</span>
+                  <span>Назад</span>
+                </button>
+                <div>
+                  <h3 class="text-2xl font-bold text-gray-blue-800">
+                    <span x-text="$store.docflow.selectedRequirement.code || 'ФТ'"></span>:
+                    <span x-text="$store.docflow.selectedRequirement.title"></span>
+                  </h3>
+                  <p x-show="$store.docflow.selectedRequirement.section_path" class="text-sm text-gray-blue-500 mt-1" x-text="$store.docflow.selectedRequirement.section_path"></p>
+                </div>
+              </div>
+
+              <div class="card mb-6">
+                <h4 class="font-semibold text-gray-blue-700 mb-2">Описание</h4>
+                <p x-show="$store.docflow.selectedRequirement.description" class="text-gray-blue-700 whitespace-pre-wrap" x-text="$store.docflow.selectedRequirement.description"></p>
+                <p x-show="!$store.docflow.selectedRequirement.description" class="text-gray-blue-500 italic">Описание отсутствует</p>
+              </div>
+
+              <!-- Загрузка покрытия -->
+              <div x-show="loadingCoverage" class="flex items-center justify-center py-8">
+                <div class="animate-spin w-6 h-6 border-4 border-bloom-300 border-t-bloom-600 rounded-full"></div>
+              </div>
+
+              <!-- Нет чек-листа -->
+              <div x-show="!loadingCoverage && !checklist" class="card text-center py-10">
+                <div class="text-5xl mb-3">📋</div>
+                <h4 class="text-lg font-semibold text-gray-blue-800 mb-2">Чек-лист не создан</h4>
+                <p class="text-gray-blue-600 mb-4">Сгенерируйте чек-лист проверок для этого требования</p>
+                <button @click="generateChecklist()" class="btn-primary" :disabled="$store.docflow.loading">
+                  Сгенерировать чек-лист
+                </button>
+              </div>
+
+              <!-- Есть чек-лист -->
+              <div x-show="!loadingCoverage && checklist" x-cloak class="space-y-4">
+                <div class="flex items-center justify-between flex-wrap gap-3">
+                  <h4 class="text-lg font-semibold text-gray-blue-800">Чек-лист</h4>
+                  <div class="flex items-center gap-2">
+                    <button @click="startEditingChecklist()" class="btn-secondary text-sm">Редактировать</button>
+                    <button @click="deleteChecklist()" class="btn-danger text-sm">Удалить</button>
+                  </div>
+                </div>
+
+                <!-- Режим просмотра чек-листа -->
+                <div x-show="!editingChecklist" class="space-y-2">
+                  <!-- Позитивные пункты -->
+                  <template x-for="item in (checklist.items?.positive || [])" :key="item.id">
+                    <div class="checklist-item-positive rounded-r-xl" @click="toggleItem(item.id)">
+                      <div class="flex items-center gap-3">
+                        <span class="w-2 h-2 rounded-full bg-sage-400"></span>
+                        <span class="flex-1 text-gray-blue-800" x-text="item.text"></span>
+                        <span x-show="testcaseFor(item.id)" class="text-xs bg-sage-100 text-sage-700 px-2 py-1 rounded-lg">кейс</span>
+                        <span x-text="isExpanded(item.id) ? '▲' : '▼'" class="text-gray-blue-400 text-xs"></span>
+                      </div>
+
+                      <div x-show="isExpanded(item.id)" x-cloak class="bg-ivory-100 rounded-lg p-3 mt-2 ml-4">
+                        <!-- Нет тест-кейса -->
+                        <div x-show="!testcaseFor(item.id)">
+                          <button @click.stop="generateTestcase(item.id)" class="btn-primary text-sm" :disabled="$store.docflow.loading">
+                            Сгенерировать тест-кейс
+                          </button>
+                        </div>
+
+                        <!-- Есть тест-кейс -->
+                        <div x-show="testcaseFor(item.id)">
+                          <!-- Режим просмотра -->
+                          <div x-show="!editingTestcase || editingTestcase.id !== testcaseFor(item.id).id">
+                            <div class="font-semibold text-gray-blue-800 mb-1" x-text="testcaseFor(item.id).title"></div>
+                            <ol class="list-decimal list-inside text-sm text-gray-blue-700 space-y-1 mb-2">
+                              <template x-for="step in splitSteps(testcaseFor(item.id).steps)" :key="step">
+                                <li x-text="step"></li>
+                              </template>
+                            </ol>
+                            <div class="text-sm">
+                              <span class="font-medium text-gray-blue-700">Ожидаемый результат:</span>
+                              <span class="text-gray-blue-600" x-text="testcaseFor(item.id).expected_result"></span>
+                            </div>
+                            <div class="flex items-center gap-3 mt-3">
+                              <label class="inline-flex items-center gap-2 text-sm text-gray-blue-700 cursor-pointer">
+                                <input type="checkbox" :checked="testcaseFor(item.id).include_in_pmi" @change.stop="togglePmi(testcaseFor(item.id))" class="accent-bloom-500">
+                                <span>Включить в ПМИ</span>
+                              </label>
+                              <button @click.stop="editTestcase(testcaseFor(item.id))" class="text-sm text-lavender-700 hover:underline">Редактировать</button>
+                              <button @click.stop="deleteTestcase(testcaseFor(item.id))" class="text-sm text-bloom-600 hover:underline">Удалить</button>
+                            </div>
+                          </div>
+
+                          <!-- Режим редактирования -->
+                          <div x-show="editingTestcase && editingTestcase.id === testcaseFor(item.id).id" class="space-y-3">
+                            <div>
+                              <label class="block text-sm font-medium text-gray-blue-700 mb-1">Название</label>
+                              <input type="text" x-model="editingTestcase.title" class="input-field text-sm">
+                            </div>
+                            <div>
+                              <label class="block text-sm font-medium text-gray-blue-700 mb-1">Шаги</label>
+                              <textarea x-model="editingTestcase.steps" rows="5" class="textarea-field text-sm" placeholder="Один шаг на строку"></textarea>
+                            </div>
+                            <div>
+                              <label class="block text-sm font-medium text-gray-blue-700 mb-1">Ожидаемый результат</label>
+                              <textarea x-model="editingTestcase.expected_result" rows="3" class="textarea-field text-sm"></textarea>
+                            </div>
+                            <div class="flex items-center gap-3">
+                              <button @click.stop="saveTestcase()" class="btn-primary text-sm" :disabled="$store.docflow.loading">Сохранить</button>
+                              <button @click.stop="cancelEditTestcase()" class="btn-secondary text-sm">Отмена</button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </template>
+
+                  <!-- Негативные пункты -->
+                  <template x-for="item in (checklist.items?.negative || [])" :key="item.id">
+                    <div class="checklist-item-negative rounded-r-xl" @click="toggleItem(item.id)">
+                      <div class="flex items-center gap-3">
+                        <span class="w-2 h-2 rounded-full bg-bloom-400"></span>
+                        <span class="flex-1 text-gray-blue-800" x-text="item.text"></span>
+                        <span x-show="testcaseFor(item.id)" class="text-xs bg-bloom-100 text-bloom-700 px-2 py-1 rounded-lg">кейс</span>
+                        <span x-text="isExpanded(item.id) ? '▲' : '▼'" class="text-gray-blue-400 text-xs"></span>
+                      </div>
+
+                      <div x-show="isExpanded(item.id)" x-cloak class="bg-ivory-100 rounded-lg p-3 mt-2 ml-4">
+                        <div x-show="!testcaseFor(item.id)">
+                          <button @click.stop="generateTestcase(item.id)" class="btn-primary text-sm" :disabled="$store.docflow.loading">
+                            Сгенерировать тест-кейс
+                          </button>
+                        </div>
+
+                        <div x-show="testcaseFor(item.id)">
+                          <div x-show="!editingTestcase || editingTestcase.id !== testcaseFor(item.id).id">
+                            <div class="font-semibold text-gray-blue-800 mb-1" x-text="testcaseFor(item.id).title"></div>
+                            <ol class="list-decimal list-inside text-sm text-gray-blue-700 space-y-1 mb-2">
+                              <template x-for="step in splitSteps(testcaseFor(item.id).steps)" :key="step">
+                                <li x-text="step"></li>
+                              </template>
+                            </ol>
+                            <div class="text-sm">
+                              <span class="font-medium text-gray-blue-700">Ожидаемый результат:</span>
+                              <span class="text-gray-blue-600" x-text="testcaseFor(item.id).expected_result"></span>
+                            </div>
+                            <div class="flex items-center gap-3 mt-3">
+                              <label class="inline-flex items-center gap-2 text-sm text-gray-blue-700 cursor-pointer">
+                                <input type="checkbox" :checked="testcaseFor(item.id).include_in_pmi" @change.stop="togglePmi(testcaseFor(item.id))" class="accent-bloom-500">
+                                <span>Включить в ПМИ</span>
+                              </label>
+                              <button @click.stop="editTestcase(testcaseFor(item.id))" class="text-sm text-lavender-700 hover:underline">Редактировать</button>
+                              <button @click.stop="deleteTestcase(testcaseFor(item.id))" class="text-sm text-bloom-600 hover:underline">Удалить</button>
+                            </div>
+                          </div>
+
+                          <div x-show="editingTestcase && editingTestcase.id === testcaseFor(item.id).id" class="space-y-3">
+                            <div>
+                              <label class="block text-sm font-medium text-gray-blue-700 mb-1">Название</label>
+                              <input type="text" x-model="editingTestcase.title" class="input-field text-sm">
+                            </div>
+                            <div>
+                              <label class="block text-sm font-medium text-gray-blue-700 mb-1">Шаги</label>
+                              <textarea x-model="editingTestcase.steps" rows="5" class="textarea-field text-sm" placeholder="Один шаг на строку"></textarea>
+                            </div>
+                            <div>
+                              <label class="block text-sm font-medium text-gray-blue-700 mb-1">Ожидаемый результат</label>
+                              <textarea x-model="editingTestcase.expected_result" rows="3" class="textarea-field text-sm"></textarea>
+                            </div>
+                            <div class="flex items-center gap-3">
+                              <button @click.stop="saveTestcase()" class="btn-primary text-sm" :disabled="$store.docflow.loading">Сохранить</button>
+                              <button @click.stop="cancelEditTestcase()" class="btn-secondary text-sm">Отмена</button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </template>
+
+                  <div x-show="!(checklist.items?.positive?.length) && !(checklist.items?.negative?.length)" class="text-gray-blue-500 text-sm">
+                    Чек-лист пуст. Отредактируйте его или сгенерируйте заново.
+                  </div>
+                </div>
+
+                <!-- Режим редактирования чек-листа -->
+                <div x-show="editingChecklist" x-cloak class="card space-y-4">
+                  <h4 class="font-semibold text-gray-blue-800">Редактирование чек-листа</h4>
+
+                  <!-- Позитивные -->
+                  <div>
+                    <div class="flex items-center justify-between mb-2">
+                      <h5 class="text-sm font-medium text-sage-700">Позитивные проверки</h5>
+                      <button @click="addItem('positive')" class="text-sm text-sage-700 hover:underline">+ Добавить</button>
+                    </div>
+                    <div class="space-y-2">
+                      <template x-for="(item, index) in positiveItems" :key="item.id">
+                        <div class="flex items-start gap-2">
+                          <span class="w-2 h-2 mt-2 rounded-full bg-sage-400 flex-shrink-0"></span>
+                          <input type="text" x-model="item.text" class="input-field text-sm flex-1" placeholder="Текст пункта">
+                          <button @click="removeItem('positive', index)" class="text-bloom-600 text-sm px-2" title="Удалить">✕</button>
+                        </div>
+                      </template>
+                    </div>
+                  </div>
+
+                  <!-- Негативные -->
+                  <div>
+                    <div class="flex items-center justify-between mb-2">
+                      <h5 class="text-sm font-medium text-bloom-700">Негативные проверки</h5>
+                      <button @click="addItem('negative')" class="text-sm text-bloom-700 hover:underline">+ Добавить</button>
+                    </div>
+                    <div class="space-y-2">
+                      <template x-for="(item, index) in negativeItems" :key="item.id">
+                        <div class="flex items-start gap-2">
+                          <span class="w-2 h-2 mt-2 rounded-full bg-bloom-400 flex-shrink-0"></span>
+                          <input type="text" x-model="item.text" class="input-field text-sm flex-1" placeholder="Текст пункта">
+                          <button @click="removeItem('negative', index)" class="text-bloom-600 text-sm px-2" title="Удалить">✕</button>
+                        </div>
+                      </template>
+                    </div>
+                  </div>
+
+                  <div class="flex items-center gap-3 pt-2">
+                    <button @click="saveChecklist()" class="btn-primary text-sm" :disabled="$store.docflow.loading">Сохранить</button>
+                    <button @click="cancelEditChecklist()" class="btn-secondary text-sm">Отмена</button>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+          </section>
         </div>
 
       </div>

@@ -15,8 +15,11 @@ document.addEventListener('alpine:init', () => {
 
         // --- Данные ---
         projects: [],
+        requirementsTree: [],
+        selectedSection: null,
+        selectedRequirement: null,
 
-        // --- Состояние загрузки и ошибки ---
+        // --- Состояние загрузки и ошибка ---
         loading: false,
         error: '',
         toast: {
@@ -109,17 +112,24 @@ document.addEventListener('alpine:init', () => {
             this.currentProject = null;
             this.currentView = 'projects';
             this.mobileMenuOpen = false;
+            this.selectedSection = null;
+            this.selectedRequirement = null;
+            this.requirementsTree = [];
             this.loadProjects();
         },
 
         /**
-         * Открыть детали проекта и подгрузить его ТЗ.
+         * Открыть детали проекта и подгрузить его ТЗ и дерево ЧТЗ.
          */
         async openProject(project) {
             this.currentProject = { ...project, tz_text: '', tz_filename: '' };
             this.currentView = 'project';
             this.mobileMenuOpen = false;
+            this.selectedSection = null;
+            this.selectedRequirement = null;
+            this.requirementsTree = [];
             await this.loadProjectTz();
+            await this.loadRequirementsTree();
         },
 
         /**
@@ -137,6 +147,64 @@ document.addEventListener('alpine:init', () => {
             } finally {
                 this.loading = false;
             }
+        },
+
+        /**
+         * Загрузить дерево требований проекта.
+         */
+        async loadRequirementsTree() {
+            if (!this.currentProject) return;
+            this.loading = true;
+            try {
+                const data = await DocFlowAPI.fetchRequirementsTree(this.currentProject.id);
+                this.requirementsTree = data.tree || [];
+            } catch (err) {
+                this.handleError(err);
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        /**
+         * Сгенерировать ЧТЗ из ТЗ и обновить дерево.
+         */
+        async generateChtz() {
+            if (!this.currentProject) return;
+            this.loading = true;
+            this.error = '';
+            try {
+                await DocFlowAPI.generateChtz(this.currentProject.id);
+                this.showToast('ЧТЗ успешно сгенерировано', 'success');
+                await this.loadRequirementsTree();
+            } catch (err) {
+                this.handleError(err);
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        /**
+         * Выбрать раздел ЧТЗ.
+         */
+        selectSection(section) {
+            this.selectedSection = section;
+            this.selectedRequirement = null;
+        },
+
+        /**
+         * Выбрать требование.
+         */
+        selectRequirement(req) {
+            this.selectedRequirement = req;
+            this.selectedSection = null;
+        },
+
+        /**
+         * Сбросить выбор (показать ТЗ/обзор проекта).
+         */
+        clearSelection() {
+            this.selectedSection = null;
+            this.selectedRequirement = null;
         },
 
         /**

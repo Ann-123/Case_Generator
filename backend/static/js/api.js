@@ -104,6 +104,45 @@ const DocFlowAPI = {
     async generateChtz(projectId) {
         return this._request('POST', `/projects/${projectId}/generate-chtz`);
     },
+
+    async fetchRequirementsTree(projectId) {
+        return this._request('GET', `/projects/${projectId}/requirements-tree`);
+    },
+
+    // ---------- Чек-листы ----------
+    async generateChecklist(requirementId) {
+        return this._request('POST', `/requirements/${requirementId}/checklist`);
+    },
+
+    async fetchChecklist(checklistId) {
+        return this._request('GET', `/checklists/${checklistId}`);
+    },
+
+    async updateChecklist(checklistId, itemsJson) {
+        return this._request('PUT', `/checklists/${checklistId}`, { items_json: itemsJson });
+    },
+
+    async deleteChecklist(checklistId) {
+        return this._request('DELETE', `/checklists/${checklistId}`);
+    },
+
+    // ---------- Покрытие требования ----------
+    async fetchRequirementCoverage(requirementId) {
+        return this._request('GET', `/requirements/${requirementId}/coverage`);
+    },
+
+    // ---------- Тест-кейсы ----------
+    async generateTestcase(checklistId, itemId) {
+        return this._request('POST', `/checklists/${checklistId}/testcase/${itemId}`);
+    },
+
+    async updateTestcase(testcaseId, fields) {
+        return this._request('PUT', `/testcases/${testcaseId}`, fields);
+    },
+
+    async deleteTestcase(testcaseId) {
+        return this._request('DELETE', `/testcases/${testcaseId}`);
+    },
 };
 
 window.DocFlowAPI = DocFlowAPI;
