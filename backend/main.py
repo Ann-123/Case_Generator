@@ -49,9 +49,10 @@ from .database import init_db, get_page_description, get_all_pages, get_pages_de
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
-    os.makedirs(
-        os.path.join(os.path.dirname(__file__), "static", "uploads"), exist_ok=True
-    )
+    base_uploads = os.path.join(os.path.dirname(__file__), "static", "uploads")
+    os.makedirs(base_uploads, exist_ok=True)
+    os.makedirs(os.path.join(base_uploads, "templates"), exist_ok=True)
+    os.makedirs(os.path.join(base_uploads, "documents"), exist_ok=True)
     yield
 
 
@@ -84,10 +85,14 @@ async def check_auth(api_key: str = Depends(verify_api_key)):
 from .pages import router as pages_router
 from .projects import router as projects_router
 from .checklists import router as checklists_router
+from .templates import router as templates_router
+from .documents import router as documents_router
 
 app.include_router(pages_router)
 app.include_router(projects_router)
 app.include_router(checklists_router)
+app.include_router(templates_router)
+app.include_router(documents_router)
 
 
 # ----------- Модели для генерации ----------

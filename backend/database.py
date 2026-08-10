@@ -83,6 +83,19 @@ def init_db():
         )
     """)
 
+    # Шаблоны документов проекта
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS document_templates (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            project_id INTEGER NOT NULL,
+            doc_type TEXT NOT NULL,
+            file_path TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+            UNIQUE(project_id, doc_type)
+        )
+    """)
+
     conn.commit()
     conn.close()
     logger.info("Database pages.db initialized")
@@ -624,6 +637,183 @@ def get_testcases_by_requirement(requirement_id: int) -> list[dict]:
             "expected_result": r[6],
             "include_in_pmi": bool(r[7]),
             "created_at": r[8],
+        }
+        for r in rows
+    ]
+
+
+# ---------- CRUD для шаблонов документов ----------
+
+
+def create_template(project_id: int, doc_type: str, file_path: str) -> dict:
+    """Создаёт запись о шаблоне документа."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("PRAGMA foreign_keys = ON")
+    try:
+        cursor = conn.execute(
+            """
+            INSERT INTO document_templates (project_id, doc_type, file_path)
+            VALUES (?, ?, ?)
+            RETURNING id, project_id, doc_type, file_path, created_at
+            """,
+            (project_id, doc_type, file_path),
+        )
+    except sqlite3.IntegrityError as exc:
+        conn.close()
+        raise ValueError("Шаблон с таким doc_type уже существует в проекте") from exc
+    row = cursor.fetchone()
+    conn.commit()
+    conn.close()
+    return {
+        "id": row[0],
+        "project_id": row[1],
+        "doc_type": row[2],
+        "file_path": row[3],
+        "created_at": row[4],
+    }
+
+
+def get_templates_by_project(project_id: int) -> list[dict]:
+    """Возвращает список шаблонов для проекта."""
+    conn = sqlite3.connect(DB_PATH)
+    rows = conn.execute(
+        """
+        SELECT id, project_id, doc_type, file_path, created_at
+        FROM document_templates
+        WHERE project_id = ?
+        ORDER BY created_at DESC
+        """,
+        (project_id,),
+    ).fetchall()
+    conn.close()
+    return [
+        {
+            "id": r[0],
+            "project_id": r[1],
+            "doc_type": r[2],
+            "file_path": r[3],
+            "created_at": r[4],
+        }
+        for r in rows
+    ]
+
+
+def get_template_by_type(project_id: int, doc_type: str) -> Optional[dict]:
+    """Возвращает шаблон по типу документа в рамках проекта."""
+    conn = sqlite3.connect(DB_PATH)
+    row = conn.execute(
+        """
+        SELECT id, project_id, doc_type, file_path, created_at
+        FROM document_templates
+        WHERE project_id = ? AND doc_type = ?
+        """,
+        (project_id, doc_type),
+    ).fetchone()
+    conn.close()
+    if not row:
+        return None
+    return {
+        "id": row[0],
+        "project_id": row[1],
+        "doc_type": row[2],
+        "file_path": row[3],
+        "created_at": row[4],
+    }
+
+
+def delete_template(project_id: int, doc_type: str) -> bool:
+    """Удаляет запись о шаблоне. Возвращает True, если запись была удалена."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("PRAGMA foreign_keys = ON")
+    cursor = conn.execute(
+        "DELETE FROM document_templates WHERE project_id = ? AND doc_type = ?",
+        (project_id, doc_type),
+    )
+    conn.commit()
+    conn.close()
+    return cursor.rowcount > 0
+
+
+# ---------- Данные для сборки документов ----------
+
+
+def get_ft_requirements(project_id: int) -> list[dict]:
+    """
+    Возвращает функциональные требования проекта (листья дерева),
+    исключая разделы-контейнеры верхнего уровня.
+    """
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    rows = conn.execute(
+        """
+        SELECT id, project_id, parent_id, code, title, description, sort_order
+        FROM requirements
+        WHERE project_id = ? AND parent_id IS NOT NULL
+        ORDER BY sort_order, id
+        """,
+        (project_id,),
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_pmi_testcases(project_id: int) -> list[dict]:
+    """
+    Возвращает тест-кейсы, включённые в ПМИ (include_in_pmi = True),
+    для заданного проекта.
+    """
+    conn = sqlite3.connect(DB_PATH)
+    rows = conn.execute(
+        """
+        SELECT tc.title, tc.steps, tc.expected_result
+        FROM testcases tc
+        JOIN checklists c ON tc.checklist_id = c.id
+        JOIN requirements r ON c.requirement_id = r.id
+        WHERE r.project_id = ? AND tc.include_in_pmi = 1
+        ORDER BY tc.id
+        """,
+        (project_id,),
+    ).fetchall()
+    conn.close()
+    return [
+        {
+            "title": r[0],
+            "steps": r[1],
+            "expected_result": r[2],
+        }
+        for r in rows
+    ]
+
+
+def get_requirements_coverage_matrix(project_id: int) -> list[dict]:
+    """
+    Возвращает матрицу покрытия: для каждого ФТ количество чек-листов
+    и тест-кейсов.
+    """
+    conn = sqlite3.connect(DB_PATH)
+    rows = conn.execute(
+        """
+        SELECT
+            r.id,
+            r.code,
+            COUNT(DISTINCT c.id) AS checklists_count,
+            COUNT(DISTINCT tc.id) AS testcases_count
+        FROM requirements r
+        LEFT JOIN checklists c ON c.requirement_id = r.id
+        LEFT JOIN testcases tc ON tc.requirement_id = r.id
+        WHERE r.project_id = ? AND r.parent_id IS NOT NULL
+        GROUP BY r.id, r.code
+        ORDER BY r.sort_order, r.id
+        """,
+        (project_id,),
+    ).fetchall()
+    conn.close()
+    return [
+        {
+            "id": r[0],
+            "code": r[1],
+            "checklists_count": r[2],
+            "testcases_count": r[3],
         }
         for r in rows
     ]
