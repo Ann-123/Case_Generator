@@ -4,6 +4,9 @@
  */
 const API_BASE = ''; // относительно текущего origin
 
+// Гарантируем, что глобальный объект существует до определения методов
+window.DocFlowAPI = window.DocFlowAPI || {};
+
 const DocFlowAPI = {
     apiKey: '',
 
@@ -97,10 +100,6 @@ const DocFlowAPI = {
         return this._request('GET', `/projects/${projectId}/tz`);
     },
 
-    async uploadProjectTz(projectId, formData) {
-        return this._request('POST', `/projects/${projectId}/upload-tz`, formData);
-    },
-
     async generateChtz(projectId) {
         return this._request('POST', `/projects/${projectId}/generate-chtz`);
     },
@@ -142,6 +141,67 @@ const DocFlowAPI = {
 
     async deleteTestcase(testcaseId) {
         return this._request('DELETE', `/testcases/${testcaseId}`);
+    },
+
+    async uploadTz(projectId, formData) {
+        const apiKey = this.apiKey || window.Alpine?.store('docflow')?.apiKey || localStorage.getItem('api_key') || '';
+        const response = await fetch(`/projects/${projectId}/upload-tz`, {
+            method: 'POST',
+            headers: { 'X-API-Key': apiKey },
+            body: formData,
+        });
+
+        if (response.status === 401 || response.status === 403) {
+            throw new Error('auth');
+        }
+
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({ detail: 'Ошибка загрузки ТЗ' }));
+            throw new Error(err.detail || 'Ошибка загрузки ТЗ');
+        }
+
+        return response.json();
+    },
+
+    // ---------- Шаблоны документов ----------
+    async fetchTemplates(projectId) {
+        return this._request('GET', `/projects/${projectId}/templates`);
+    },
+
+    async uploadTemplate(projectId, formData) {
+        return this._request('POST', `/projects/${projectId}/templates`, formData);
+    },
+
+    async deleteTemplate(projectId, docType) {
+        return this._request('DELETE', `/projects/${projectId}/templates/${encodeURIComponent(docType)}`);
+    },
+
+    // ---------- Сборка и экспорт документов ----------
+    async assembleDocument(projectId, docType) {
+        return this._request('POST', `/projects/${projectId}/documents/${encodeURIComponent(docType)}/assemble`);
+    },
+
+    async updateSection(projectId, docType, sectionIndex, content) {
+        return this._request('PUT', `/projects/${projectId}/documents/${encodeURIComponent(docType)}/sections/${sectionIndex}`, { content });
+    },
+
+    async exportDocument(projectId, docType) {
+        const apiKey = this.apiKey || window.Alpine?.store('docflow')?.apiKey || localStorage.getItem('api_key') || '';
+        const response = await fetch(`/projects/${projectId}/documents/${encodeURIComponent(docType)}/export`, {
+            method: 'GET',
+            headers: { 'X-API-Key': apiKey },
+        });
+
+        if (response.status === 401 || response.status === 403) {
+            throw new Error('auth');
+        }
+
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({ detail: 'Ошибка экспорта документа' }));
+            throw new Error(err.detail || 'Ошибка экспорта документа');
+        }
+
+        return response.blob();
     },
 };
 

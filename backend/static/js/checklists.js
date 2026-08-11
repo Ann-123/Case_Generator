@@ -57,7 +57,7 @@ document.addEventListener('alpine:init', () => {
             this.editingChecklist = false;
             this.editingTestcase = null;
             try {
-                const data = await DocFlowAPI.fetchRequirementCoverage(req.id);
+                const data = await window.DocFlowAPI.fetchRequirementCoverage(req.id);
                 this.coverage = data;
                 this.checklist = data.checklists && data.checklists.length > 0 ? data.checklists[0] : null;
                 this.buildTestcaseMap(data.testcases || []);
@@ -125,7 +125,7 @@ document.addEventListener('alpine:init', () => {
 
             this.$store.docflow.loading = true;
             try {
-                await DocFlowAPI.generateChecklist(req.id);
+                await window.DocFlowAPI.generateChecklist(req.id);
                 this.$store.docflow.showToast('Чек-лист сгенерирован', 'success');
                 await this.loadCoverage();
             } catch (err) {
@@ -142,7 +142,7 @@ document.addEventListener('alpine:init', () => {
             if (!this.checklist) return;
             this.$store.docflow.loading = true;
             try {
-                await DocFlowAPI.generateTestcase(this.checklist.id, itemId);
+                await window.DocFlowAPI.generateTestcase(this.checklist.id, itemId);
                 this.$store.docflow.showToast('Тест-кейс сгенерирован', 'success');
                 await this.loadCoverage();
                 this.expandedItems.add(itemId);
@@ -224,7 +224,7 @@ document.addEventListener('alpine:init', () => {
 
             this.$store.docflow.loading = true;
             try {
-                await DocFlowAPI.updateChecklist(this.checklist.id, itemsJson);
+                await window.DocFlowAPI.updateChecklist(this.checklist.id, itemsJson);
                 this.$store.docflow.showToast('Чек-лист сохранён', 'success');
                 this.editingChecklist = false;
                 await this.loadCoverage();
@@ -244,7 +244,7 @@ document.addEventListener('alpine:init', () => {
 
             this.$store.docflow.loading = true;
             try {
-                await DocFlowAPI.deleteChecklist(this.checklist.id);
+                await window.DocFlowAPI.deleteChecklist(this.checklist.id);
                 this.$store.docflow.showToast('Чек-лист удалён', 'success');
                 await this.loadCoverage();
             } catch (err) {
@@ -283,7 +283,7 @@ document.addEventListener('alpine:init', () => {
             if (!this.editingTestcase) return;
             this.$store.docflow.loading = true;
             try {
-                await DocFlowAPI.updateTestcase(this.editingTestcase.id, {
+                await window.DocFlowAPI.updateTestcase(this.editingTestcase.id, {
                     title: this.editingTestcase.title,
                     steps: this.editingTestcase.steps,
                     expected_result: this.editingTestcase.expected_result,
@@ -305,7 +305,7 @@ document.addEventListener('alpine:init', () => {
         async togglePmi(tc) {
             this.$store.docflow.loading = true;
             try {
-                await DocFlowAPI.updateTestcase(tc.id, {
+                await window.DocFlowAPI.updateTestcase(tc.id, {
                     include_in_pmi: !tc.include_in_pmi,
                 });
                 this.$store.docflow.showToast('Флаг ПМИ обновлён', 'success');
@@ -324,7 +324,7 @@ document.addEventListener('alpine:init', () => {
             if (!confirm('Удалить тест-кейс?')) return;
             this.$store.docflow.loading = true;
             try {
-                await DocFlowAPI.deleteTestcase(tc.id);
+                await window.DocFlowAPI.deleteTestcase(tc.id);
                 this.$store.docflow.showToast('Тест-кейс удалён', 'success');
                 await this.loadCoverage();
             } catch (err) {

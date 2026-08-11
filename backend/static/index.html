@@ -138,10 +138,12 @@
   <!-- Alpine.js -->
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
+  <!-- API-клиент должен быть загружен до хранилища, которое его использует -->
+  <script src="/static/js/api.js"></script>
+
   <!--
-    Регистрация глобального хранилища Alpine.js выполняется inline сразу после Alpine.
-    Это гарантирует, что $store.docflow будет доступен до начала обработки DOM.
-    Остальные скрипты (api.js, компоненты) добавляются ниже и используют store.
+    Регистрация глобального хранилища Alpine.js выполняется inline сразу после Alpine.js и api.js.
+    Хранилище обращается к window.DocFlowAPI, поэтому api.js должен загружаться раньше.
   -->
   <script>
     document.addEventListener('alpine:init', () => {
@@ -154,6 +156,27 @@
         currentView: 'login', // 'login' | 'projects' | 'project'
         currentProject: null,
         mobileMenuOpen: false,
+
+        // --- Техническое задание ---
+        tzText: '',
+        tzFile: null,
+        tzMode: 'text', // 'text' | 'file'
+        uploadingTz: false,
+
+        // --- Документы ---
+        projectTab: 'project', // 'project' | 'documents'
+        templates: [],
+        currentDocType: '',
+        documentSections: [],
+        editingSection: null,
+        editingSectionContent: '',
+        newTemplateDocType: '',
+        customDocType: '',
+        newTemplateFile: null,
+        uploadingTemplate: false,
+        assemblingDocument: false,
+        savingSection: false,
+        exportingDocument: false,
 
         // --- Данные ---
         projects: [],
@@ -176,11 +199,36 @@
         },
 
         /**
+         * Дождаться загрузки глобального API-клиента.
+         */
+        waitForApi(timeout = 5000) {
+            const start = Date.now();
+            return new Promise((resolve, reject) => {
+                const check = () => {
+                    if (window.DocFlowAPI && typeof window.DocFlowAPI.setApiKey === 'function') {
+                        resolve();
+                        return;
+                    }
+                    if (Date.now() - start > timeout) {
+                        reject(new Error('API-клиент не загрузился'));
+                        return;
+                    }
+                    setTimeout(check, 100);
+                };
+                check();
+            });
+        },
+
+        /**
          * Проверяем сохранённый ключ при старте.
          */
         async init() {
-            if (this.apiKey) {
+            if (!this.apiKey) return;
+            try {
+                await this.waitForApi();
                 await this.checkAuth();
+            } catch (err) {
+                this.error = err.message || 'Скрипты API ещё загружаются';
             }
         },
 
@@ -196,7 +244,7 @@
             this.error = '';
             this.apiKey = key;
             localStorage.setItem('api_key', key);
-            DocFlowAPI.setApiKey(key);
+            window.DocFlowAPI.setApiKey(key);
             await this.checkAuth();
         },
 
@@ -207,18 +255,13 @@
             this.loading = true;
             this.error = '';
             try {
-                DocFlowAPI.setApiKey(this.apiKey);
-                await DocFlowAPI.checkAuth();
+                window.DocFlowAPI.setApiKey(this.apiKey);
+                await window.DocFlowAPI.checkAuth();
                 this.loggedIn = true;
                 this.currentView = 'projects';
                 await this.loadProjects();
             } catch (err) {
-                if (err.message === 'auth') {
-                    this.error = 'Неверный или отсутствующий API-ключ';
-                } else {
-                    this.error = err.message || 'Не удалось подключиться к серверу';
-                }
-                this.logout();
+                this.handleError(err);
             } finally {
                 this.loading = false;
             }
@@ -247,7 +290,7 @@
         async loadProjects() {
             this.loading = true;
             try {
-                this.projects = await DocFlowAPI.fetchProjects();
+                this.projects = await window.DocFlowAPI.fetchProjects();
             } catch (err) {
                 this.handleError(err);
             } finally {
@@ -286,7 +329,7 @@
             this.loading = true;
             this.createProjectError = '';
             try {
-                await DocFlowAPI.createProject(name);
+                await window.DocFlowAPI.createProject(name);
                 this.showToast('Проект создан', 'success');
                 this.closeCreateModal();
                 await this.loadProjects();
@@ -305,7 +348,7 @@
 
             this.loading = true;
             try {
-                await DocFlowAPI.deleteProject(project.id);
+                await window.DocFlowAPI.deleteProject(project.id);
                 this.showToast('Проект удалён', 'success');
                 await this.loadProjects();
             } catch (err) {
@@ -325,6 +368,15 @@
             this.selectedSection = null;
             this.selectedRequirement = null;
             this.requirementsTree = [];
+            this.projectTab = 'project';
+            this.templates = [];
+            this.currentDocType = '';
+            this.documentSections = [];
+            this.editingSection = null;
+            this.editingSectionContent = '';
+            this.newTemplateDocType = '';
+            this.customDocType = '';
+            this.newTemplateFile = null;
             this.loadProjects();
         },
 
@@ -338,7 +390,26 @@
             this.selectedSection = null;
             this.selectedRequirement = null;
             this.requirementsTree = [];
+            this.tzText = '';
+            this.tzFile = null;
+            this.tzMode = 'text';
+            this.uploadingTz = false;
+            this.projectTab = 'project';
+            this.templates = [];
+            this.currentDocType = '';
+            this.documentSections = [];
+            this.editingSection = null;
+            this.editingSectionContent = '';
+            this.newTemplateDocType = '';
+            this.customDocType = '';
+            this.newTemplateFile = null;
+            this.uploadingTemplate = false;
+            this.assemblingDocument = false;
+            this.savingSection = false;
+            this.exportingDocument = false;
             await this.loadProjectTz();
+            this.tzText = this.currentProject?.tz_text || '';
+            this.tzFile = null;
             await this.loadRequirementsTree();
         },
 
@@ -349,7 +420,7 @@
             if (!this.currentProject) return;
             this.loading = true;
             try {
-                const data = await DocFlowAPI.fetchProjectTz(this.currentProject.id);
+                const data = await window.DocFlowAPI.fetchProjectTz(this.currentProject.id);
                 this.currentProject.tz_text = data.tz_text || '';
                 this.currentProject.tz_filename = data.tz_filename || '';
             } catch (err) {
@@ -360,13 +431,51 @@
         },
 
         /**
+         * Сохранить ТЗ на сервер: текст или файл .docx.
+         */
+        async uploadTz() {
+            if (!this.currentProject) return;
+            this.error = '';
+
+            const formData = new FormData();
+            if (this.tzMode === 'text') {
+                const text = this.tzText.trim();
+                if (!text) {
+                    this.error = 'Введите текст технического задания';
+                    return;
+                }
+                formData.append('tz_text', text);
+            } else if (this.tzMode === 'file') {
+                if (!this.tzFile) {
+                    this.error = 'Выберите файл .docx';
+                    return;
+                }
+                formData.append('file', this.tzFile);
+            }
+
+            this.uploadingTz = true;
+            try {
+                const data = await window.DocFlowAPI.uploadTz(this.currentProject.id, formData);
+                this.currentProject.tz_text = data.tz_text || '';
+                this.currentProject.tz_filename = data.tz_filename || '';
+                this.tzText = data.tz_text || this.tzText;
+                this.tzFile = null;
+                this.showToast('ТЗ сохранено', 'success');
+            } catch (err) {
+                this.handleError(err);
+            } finally {
+                this.uploadingTz = false;
+            }
+        },
+
+        /**
          * Загрузить дерево требований проекта.
          */
         async loadRequirementsTree() {
             if (!this.currentProject) return;
             this.loading = true;
             try {
-                const data = await DocFlowAPI.fetchRequirementsTree(this.currentProject.id);
+                const data = await window.DocFlowAPI.fetchRequirementsTree(this.currentProject.id);
                 this.requirementsTree = data.tree || [];
             } catch (err) {
                 this.handleError(err);
@@ -380,16 +489,194 @@
          */
         async generateChtz() {
             if (!this.currentProject) return;
-            this.loading = true;
             this.error = '';
+
+            if (!this.currentProject.tz_text?.trim()) {
+                this.error = 'Для генерации ЧТЗ загрузите ТЗ';
+                this.showToast('Для генерации ЧТЗ загрузите ТЗ', 'error');
+                return;
+            }
+
+            this.loading = true;
             try {
-                await DocFlowAPI.generateChtz(this.currentProject.id);
+                await window.DocFlowAPI.generateChtz(this.currentProject.id);
                 this.showToast('ЧТЗ успешно сгенерировано', 'success');
                 await this.loadRequirementsTree();
             } catch (err) {
                 this.handleError(err);
             } finally {
                 this.loading = false;
+            }
+        },
+
+        /**
+         * Переключить вкладку внутри проекта.
+         */
+        setProjectTab(tab) {
+            this.projectTab = tab;
+            if (tab === 'documents' && this.templates.length === 0 && this.currentProject) {
+                this.loadTemplates();
+            }
+        },
+
+        /**
+         * Загрузить список шаблонов документов проекта.
+         */
+        async loadTemplates() {
+            if (!this.currentProject) return;
+            this.loading = true;
+            try {
+                this.templates = await window.DocFlowAPI.fetchTemplates(this.currentProject.id);
+            } catch (err) {
+                this.handleError(err);
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        /**
+         * Загрузить шаблон .docx на сервер (formData содержит doc_type и file).
+         */
+        async uploadTemplate(formData) {
+            if (!this.currentProject) return;
+            this.uploadingTemplate = true;
+            try {
+                await window.DocFlowAPI.uploadTemplate(this.currentProject.id, formData);
+                this.showToast('Шаблон загружен', 'success');
+                await this.loadTemplates();
+            } catch (err) {
+                this.handleError(err);
+            } finally {
+                this.uploadingTemplate = false;
+            }
+        },
+
+        /**
+         * Собрать FormData из полей формы загрузки шаблона и вызвать uploadTemplate.
+         */
+        async uploadSelectedTemplate() {
+            this.error = '';
+            const docType = this.newTemplateDocType === 'custom'
+                ? this.customDocType.trim()
+                : this.newTemplateDocType;
+            if (!docType) {
+                this.error = 'Выберите или введите тип документа';
+                return;
+            }
+            if (!this.newTemplateFile) {
+                this.error = 'Выберите файл .docx';
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('doc_type', docType);
+            formData.append('file', this.newTemplateFile);
+            await this.uploadTemplate(formData);
+            this.newTemplateDocType = '';
+            this.customDocType = '';
+            this.newTemplateFile = null;
+        },
+
+        /**
+         * Удалить шаблон документа.
+         */
+        async deleteTemplate(docType) {
+            if (!this.currentProject) return;
+            if (!confirm(`Удалить шаблон «${docType}»?`)) return;
+
+            this.loading = true;
+            try {
+                await window.DocFlowAPI.deleteTemplate(this.currentProject.id, docType);
+                this.showToast('Шаблон удалён', 'success');
+                await this.loadTemplates();
+            } catch (err) {
+                this.handleError(err);
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        /**
+         * Собрать документ по выбранному шаблону.
+         */
+        async assembleDocument(docType) {
+            if (!this.currentProject || !docType) return;
+            this.assemblingDocument = true;
+            try {
+                const data = await window.DocFlowAPI.assembleDocument(this.currentProject.id, docType);
+                this.currentDocType = docType;
+                this.documentSections = data.sections || [];
+                this.showToast('Документ собран', 'success');
+            } catch (err) {
+                this.handleError(err);
+            } finally {
+                this.assemblingDocument = false;
+            }
+        },
+
+        /**
+         * Перейти в режим редактирования секции документа.
+         */
+        editSection(index) {
+            this.editingSection = index;
+            const section = this.documentSections[index];
+            this.editingSectionContent = (section && typeof section.content === 'string') ? section.content : '';
+        },
+
+        /**
+         * Отменить редактирование секции.
+         */
+        cancelEditSection() {
+            this.editingSection = null;
+            this.editingSectionContent = '';
+        },
+
+        /**
+         * Сохранить изменения текстовой секции документа.
+         */
+        async saveSection(index) {
+            if (!this.currentProject || !this.currentDocType) return;
+            this.savingSection = true;
+            try {
+                const data = await window.DocFlowAPI.updateSection(
+                    this.currentProject.id,
+                    this.currentDocType,
+                    index,
+                    this.editingSectionContent,
+                );
+                this.documentSections[index].content = data.content;
+                this.documentSections[index].type = data.type;
+                this.editingSection = null;
+                this.editingSectionContent = '';
+                this.showToast('Секция сохранена', 'success');
+            } catch (err) {
+                this.handleError(err);
+            } finally {
+                this.savingSection = false;
+            }
+        },
+
+        /**
+         * Скачать собранный документ .docx.
+         */
+        async exportDocument(docType) {
+            if (!this.currentProject || !docType) return;
+            this.exportingDocument = true;
+            try {
+                const blob = await window.DocFlowAPI.exportDocument(this.currentProject.id, docType);
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${docType}.docx`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+                this.showToast('Документ скачан', 'success');
+            } catch (err) {
+                this.handleError(err);
+            } finally {
+                this.exportingDocument = false;
             }
         },
 
@@ -422,7 +709,15 @@
          */
         handleError(err) {
             if (err.message === 'auth') {
-                this.logout();
+                this.error = 'Неверный или отсутствующий API-ключ. Пожалуйста, войдите снова.';
+                this.loggedIn = false;
+                this.currentView = 'login';
+                this.currentProject = null;
+                this.selectedSection = null;
+                this.selectedRequirement = null;
+                this.requirementsTree = [];
+                this.projects = [];
+                // API-ключ сохраняем, чтобы пользователь мог войти повторно без повторного ввода
             } else {
                 this.error = err.message || 'Неизвестная ошибка';
             }
@@ -442,11 +737,10 @@
   </script>
 
   <!-- Приложение -->
-  <script defer src="js/api.js"></script>
-  <script defer src="js/app.js"></script>
-  <script defer src="js/projects.js"></script>
-  <script defer src="js/requirements.js"></script>
-  <script defer src="js/checklists.js"></script>
+  <script defer src="/static/js/app.js"></script>
+  <script defer src="/static/js/projects.js"></script>
+  <script defer src="/static/js/requirements.js"></script>
+  <script defer src="/static/js/checklists.js"></script>
 </head>
 <body class="bg-beige-50 text-gray-blue-800 antialiased min-h-screen" x-data="{}" x-init="$store.docflow.init()">
 
@@ -723,7 +1017,7 @@
               <!-- Пустое дерево -->
               <div x-show="$store.docflow.requirementsTree.length === 0" class="text-center py-8 text-gray-blue-500">
                 <p class="text-sm mb-3">Дерево требований пусто</p>
-                <button @click="regenerateChtz()" class="btn-primary text-sm px-4 py-2">Сгенерировать ЧТЗ</button>
+                <button @click="$store.docflow.generateChtz()" class="btn-primary text-sm px-4 py-2">Сгенерировать ЧТЗ</button>
               </div>
             </div>
           </aside>
@@ -731,20 +1025,40 @@
           <!-- Основная область -->
           <section class="flex-1 min-w-0 h-full overflow-auto card" x-data="requirementView">
 
+            <!-- Верхняя навигация проекта -->
+            <div class="flex items-center justify-between mb-6">
+              <button @click="$store.docflow.showProjects()" class="btn-secondary text-sm flex items-center gap-2">
+                <span>←</span>
+                <span>К проектам</span>
+              </button>
+
+              <div class="flex items-center gap-1 bg-ivory-100/80 rounded-2xl p-1">
+                <button
+                  @click="$store.docflow.setProjectTab('project')"
+                  class="px-4 py-2 rounded-xl text-sm font-medium transition-colors"
+                  :class="$store.docflow.projectTab === 'project' ? 'bg-white text-bloom-700 shadow-sm' : 'text-gray-blue-600 hover:text-gray-blue-800'"
+                >ТЗ и ЧТЗ</button>
+                <button
+                  @click="$store.docflow.setProjectTab('documents')"
+                  class="px-4 py-2 rounded-xl text-sm font-medium transition-colors"
+                  :class="$store.docflow.projectTab === 'documents' ? 'bg-white text-bloom-700 shadow-sm' : 'text-gray-blue-600 hover:text-gray-blue-800'"
+                >Документы</button>
+              </div>
+            </div>
+
+            <!-- Вкладка проекта: ТЗ и ЧТЗ -->
+            <div x-show="$store.docflow.projectTab === 'project'" x-cloak>
+
             <!-- Обзор проекта / ТЗ -->
             <div x-show="!$store.docflow.selectedSection && !$store.docflow.selectedRequirement" x-cloak>
-              <div class="flex items-center justify-between mb-6">
-                <button @click="$store.docflow.showProjects()" class="btn-secondary text-sm flex items-center gap-2">
-                  <span>←</span>
-                  <span>К проектам</span>
-                </button>
+              <div class="flex items-center justify-end mb-6">
                 <button @click="$store.docflow.generateChtz()" class="btn-secondary text-sm flex items-center gap-2">
                   <span>⚡</span>
                   <span>Сгенерировать ЧТЗ</span>
                 </button>
               </div>
 
-              <div x-data="projectDetail" class="space-y-6">
+              <div class="space-y-6">
                 <div class="card">
                   <h3 class="text-xl font-bold text-gray-blue-800 mb-4 flex items-center gap-2">
                     <span>📄</span>
@@ -753,42 +1067,42 @@
 
                   <div class="flex items-center gap-4 mb-4">
                     <label class="inline-flex items-center gap-2 cursor-pointer">
-                      <input type="radio" x-model="tzMode" value="text" class="accent-bloom-500">
+                      <input type="radio" x-model="$store.docflow.tzMode" value="text" class="accent-bloom-500">
                       <span class="text-sm text-gray-blue-700">Текст</span>
                     </label>
                     <label class="inline-flex items-center gap-2 cursor-pointer">
-                      <input type="radio" x-model="tzMode" value="file" class="accent-bloom-500">
+                      <input type="radio" x-model="$store.docflow.tzMode" value="file" class="accent-bloom-500">
                       <span class="text-sm text-gray-blue-700">Файл .docx</span>
                     </label>
                   </div>
 
-                  <div x-show="tzMode === 'text'" class="mb-4">
+                  <div x-show="$store.docflow.tzMode === 'text'" class="mb-4">
                     <label for="tz-text" class="sr-only">Текст технического задания</label>
                     <textarea
                       id="tz-text"
-                      x-model="tzText"
+                      x-model="$store.docflow.tzText"
                       rows="10"
                       class="textarea-field"
                       placeholder="Введите текст технического задания..."
                     ></textarea>
                   </div>
 
-                  <div x-show="tzMode === 'file'" class="mb-4">
+                  <div x-show="$store.docflow.tzMode === 'file'" class="mb-4">
                     <label for="tz-file" class="block text-sm font-medium text-gray-blue-700 mb-2">Файл .docx</label>
                     <input
                       id="tz-file"
                       type="file"
                       accept=".docx"
-                      @change="handleFileChange($event)"
+                      @change="$store.docflow.tzFile = $event.target.files[0]"
                       class="block w-full text-sm text-gray-blue-700 file:mr-4 file:py-2.5 file:px-4 file:rounded-2xl file:border-0 file:bg-bloom-100 file:text-bloom-700 hover:file:bg-bloom-200"
                     >
-                    <p x-show="tzFileName" class="mt-2 text-sm text-gray-blue-600" x-text="'Выбран: ' + tzFileName"></p>
+                    <p x-show="$store.docflow.tzFile" class="mt-2 text-sm text-gray-blue-600" x-text="'Выбран: ' + $store.docflow.tzFile.name"></p>
                   </div>
 
                   <div x-show="$store.docflow.error" class="text-bloom-600 text-sm mb-4" x-text="$store.docflow.error"></div>
 
-                  <button @click="uploadTZ()" class="btn-primary flex items-center gap-2" :disabled="$store.docflow.loading">
-                    <span x-show="$store.docflow.loading" class="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span>
+                  <button @click="$store.docflow.uploadTz()" class="btn-primary flex items-center gap-2" :disabled="$store.docflow.uploadingTz">
+                    <span x-show="$store.docflow.uploadingTz" class="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span>
                     <span>Сохранить ТЗ</span>
                   </button>
                 </div>
@@ -1059,6 +1373,182 @@
                   </div>
                 </div>
 
+              </div>
+            </div>
+
+            </div>
+
+            <!-- Вкладка документов -->
+            <div x-show="$store.docflow.projectTab === 'documents'" x-cloak class="space-y-6">
+
+              <!-- Управление шаблонами -->
+              <div class="card">
+                <h3 class="text-xl font-bold text-gray-blue-800 mb-4 flex items-center gap-2">
+                  <span>📑</span>
+                  <span>Шаблоны документов</span>
+                </h3>
+
+                <!-- Загрузка шаблона -->
+                <div class="bg-white/60 rounded-2xl p-4 border border-beige-200/50 mb-4">
+                  <h4 class="font-semibold text-gray-blue-800 mb-3">Загрузить шаблон .docx</h4>
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                    <div>
+                      <label class="block text-sm font-medium text-gray-blue-700 mb-1">Тип документа</label>
+                      <select x-model="$store.docflow.newTemplateDocType" class="input-field">
+                        <option value="">Выберите...</option>
+                        <option value="ПМИ">ПМИ</option>
+                        <option value="ПЗ">ПЗ</option>
+                        <option value="РП">РП</option>
+                        <option value="РА">РА</option>
+                        <option value="custom">Другой</option>
+                      </select>
+                      <input
+                        x-show="$store.docflow.newTemplateDocType === 'custom'"
+                        x-model="$store.docflow.customDocType"
+                        type="text"
+                        placeholder="Введите тип документа"
+                        class="input-field mt-2"
+                      >
+                    </div>
+                    <div>
+                      <label class="block text-sm font-medium text-gray-blue-700 mb-1">Файл .docx</label>
+                      <input
+                        type="file"
+                        accept=".docx"
+                        @change="$store.docflow.newTemplateFile = $event.target.files[0]"
+                        class="block w-full text-sm text-gray-blue-700 file:mr-4 file:py-2.5 file:px-4 file:rounded-2xl file:border-0 file:bg-bloom-100 file:text-bloom-700 hover:file:bg-bloom-200"
+                      >
+                      <p x-show="$store.docflow.newTemplateFile" class="mt-2 text-sm text-gray-blue-600" x-text="'Выбран: ' + $store.docflow.newTemplateFile.name"></p>
+                    </div>
+                  </div>
+                  <div x-show="$store.docflow.error" class="text-bloom-600 text-sm mb-3" x-text="$store.docflow.error"></div>
+                  <button @click="$store.docflow.uploadSelectedTemplate()" class="btn-primary" :disabled="$store.docflow.uploadingTemplate">
+                    <span x-show="$store.docflow.uploadingTemplate" class="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2"></span>
+                    Загрузить шаблон
+                  </button>
+                </div>
+
+                <!-- Список шаблонов -->
+                <div x-show="!$store.docflow.templates.length" class="text-gray-blue-500 text-sm">
+                  Пока нет загруженных шаблонов. Загрузите шаблон, чтобы собрать документ.
+                </div>
+                <div x-show="$store.docflow.templates.length" class="overflow-x-auto">
+                  <table class="w-full text-sm text-left">
+                    <thead class="text-gray-blue-500 border-b border-beige-200">
+                      <tr>
+                        <th class="py-2 font-medium">Тип документа</th>
+                        <th class="py-2 font-medium">Имя файла</th>
+                        <th class="py-2 font-medium">Действия</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <template x-for="t in $store.docflow.templates" :key="t.doc_type">
+                        <tr class="border-b border-beige-100">
+                          <td class="py-2 text-gray-blue-700" x-text="t.doc_type"></td>
+                          <td class="py-2 text-gray-blue-500" x-text="t.file_path ? t.file_path.split('/').pop() : ''"></td>
+                          <td class="py-2">
+                            <button @click="$store.docflow.deleteTemplate(t.doc_type)" class="btn-danger text-xs py-1 px-2">Удалить</button>
+                          </td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- Сборка документа -->
+              <div class="card">
+                <h3 class="text-xl font-bold text-gray-blue-800 mb-4 flex items-center gap-2">
+                  <span>⚙️</span>
+                  <span>Сборка документа</span>
+                </h3>
+                <div class="flex flex-col md:flex-row gap-3 mb-4">
+                  <select x-model="$store.docflow.currentDocType" class="input-field">
+                    <option value="">Выберите тип документа...</option>
+                    <template x-for="t in $store.docflow.templates" :key="t.doc_type">
+                      <option :value="t.doc_type" x-text="t.doc_type"></option>
+                    </template>
+                  </select>
+                  <button
+                    @click="$store.docflow.assembleDocument($store.docflow.currentDocType)"
+                    class="btn-primary flex items-center gap-2"
+                    :disabled="$store.docflow.assemblingDocument || !$store.docflow.currentDocType"
+                  >
+                    <span x-show="$store.docflow.assemblingDocument" class="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span>
+                    Собрать документ
+                  </button>
+                </div>
+              </div>
+
+              <!-- Собранный документ -->
+              <div x-show="$store.docflow.documentSections.length" class="card">
+                <div class="flex items-center justify-between mb-4">
+                  <h3 class="text-xl font-bold text-gray-blue-800 flex items-center gap-2">
+                    <span>📄</span>
+                    <span x-text="'Собранный документ: ' + $store.docflow.currentDocType"></span>
+                  </h3>
+                  <button
+                    @click="$store.docflow.exportDocument($store.docflow.currentDocType)"
+                    class="btn-primary flex items-center gap-2"
+                    :disabled="$store.docflow.exportingDocument"
+                  >
+                    <span x-show="$store.docflow.exportingDocument" class="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span>
+                    Скачать .docx
+                  </button>
+                </div>
+
+                <div class="space-y-4">
+                  <template x-for="section in $store.docflow.documentSections" :key="section.index">
+                    <div class="bg-white/60 rounded-2xl p-4 border border-beige-200/50">
+                      <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-semibold uppercase tracking-wide text-gray-blue-500" x-text="section.type === 'heading' ? 'Заголовок' : section.type === 'table' ? 'Таблица' : 'Параграф'"></span>
+                        <button
+                          x-show="section.type !== 'table'"
+                          @click="$store.docflow.editSection(section.index)"
+                          class="btn-secondary text-xs py-1 px-2"
+                        >Редактировать</button>
+                      </div>
+
+                      <!-- Просмотр -->
+                      <div x-show="$store.docflow.editingSection !== section.index">
+                        <h4 x-show="section.type === 'heading'" class="text-lg font-bold text-gray-blue-800" x-text="section.content"></h4>
+                        <p x-show="section.type === 'paragraph'" class="text-gray-blue-700 whitespace-pre-wrap" x-text="section.content"></p>
+                        <div x-show="section.type === 'table'" class="overflow-x-auto">
+                          <table class="w-full text-sm border border-beige-200">
+                            <thead>
+                              <tr>
+                                <template x-for="(header, hIndex) in section.content.headers" :key="hIndex">
+                                  <th class="border border-beige-200 px-2 py-1 bg-ivory-50 font-medium text-gray-blue-700" x-text="header"></th>
+                                </template>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <template x-for="(row, rIndex) in section.content.rows" :key="rIndex">
+                                <tr>
+                                  <template x-for="(cell, cIndex) in row" :key="cIndex">
+                                    <td class="border border-beige-200 px-2 py-1 text-gray-blue-700" x-text="cell"></td>
+                                  </template>
+                                </tr>
+                              </template>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+
+                      <!-- Редактирование -->
+                      <div x-show="$store.docflow.editingSection === section.index">
+                        <textarea x-model="$store.docflow.editingSectionContent" rows="5" class="textarea-field mb-3" placeholder="Текст секции..."></textarea>
+                        <div class="flex items-center gap-2">
+                          <button @click="$store.docflow.saveSection(section.index)" class="btn-primary text-sm" :disabled="$store.docflow.savingSection">
+                            <span x-show="$store.docflow.savingSection" class="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2"></span>
+                            Сохранить
+                          </button>
+                          <button @click="$store.docflow.cancelEditSection()" class="btn-secondary text-sm">Отмена</button>
+                        </div>
+                      </div>
+                    </div>
+                  </template>
+                </div>
               </div>
             </div>
 

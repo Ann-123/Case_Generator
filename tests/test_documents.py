@@ -164,6 +164,26 @@ class TestTemplateUpload:
         assert response.status_code == 409
         assert "уже существует" in response.json()["error"]
 
+    def test_upload_template_missing_file(self, client, project):
+        response = client.post(
+            f"/projects/{project}/templates",
+            data={"doc_type": "ПМИ"},
+        )
+        assert response.status_code == 422
+
+    def test_upload_template_empty_file(self, client, project):
+        response = client.post(
+            f"/projects/{project}/templates",
+            data={"doc_type": "ПМИ"},
+            files={"file": ("template.docx", b"", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")},
+        )
+        assert response.status_code == 400
+        assert "пустой файл" in response.json()["error"]
+
+    def test_upload_template_project_not_found(self, client, template_no_placeholders):
+        response = _upload_template(client, 99999, template_no_placeholders, "ПМИ")
+        assert response.status_code == 404
+
 
 class TestTemplateList:
     def test_list_templates(self, client, project, template_no_placeholders):
@@ -304,6 +324,17 @@ class TestUpdateSection:
         import io
         exported_doc = Document(io.BytesIO(export_resp.content))
         assert any(new_text in p.text for p in exported_doc.paragraphs)
+
+    def test_update_section_invalid_index(self, client, project, template_no_placeholders):
+        _upload_template(client, project, template_no_placeholders, "Док")
+        assemble_resp = client.post(f"/projects/{project}/documents/Док/assemble")
+        assert assemble_resp.status_code == 200
+
+        response = client.put(
+            f"/projects/{project}/documents/Док/sections/999",
+            json={"content": "Несуществующая секция."},
+        )
+        assert response.status_code == 404
 
 
 class TestDocumentExport:

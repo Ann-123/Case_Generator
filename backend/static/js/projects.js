@@ -38,7 +38,7 @@ document.addEventListener('alpine:init', () => {
             store.loading = true;
             store.error = '';
             try {
-                const project = await DocFlowAPI.createProject(name);
+                const project = await window.DocFlowAPI.createProject(name);
                 store.projects.unshift(project);
                 store.showToast('Проект создан', 'success');
                 this.closeCreateModal();
@@ -58,7 +58,7 @@ document.addEventListener('alpine:init', () => {
             const store = this.$store.docflow;
             store.loading = true;
             try {
-                await DocFlowAPI.deleteProject(project.id);
+                await window.DocFlowAPI.deleteProject(project.id);
                 store.projects = store.projects.filter(p => p.id !== project.id);
                 store.showToast('Проект удалён', 'success');
             } catch (err) {
@@ -121,7 +121,7 @@ document.addEventListener('alpine:init', () => {
             store.loading = true;
             store.error = '';
             try {
-                const data = await DocFlowAPI.uploadProjectTz(projectId, formData);
+                const data = await window.DocFlowAPI.uploadTz(projectId, formData);
                 store.currentProject.tz_text = data.tz_text || '';
                 store.currentProject.tz_filename = data.tz_filename || '';
                 this.tzText = data.tz_text || '';
@@ -145,7 +145,7 @@ document.addEventListener('alpine:init', () => {
             store.loading = true;
             store.error = '';
             try {
-                await DocFlowAPI.generateChtz(projectId);
+                await window.DocFlowAPI.generateChtz(projectId);
                 store.showToast('ЧТЗ успешно сгенерировано', 'success');
             } catch (err) {
                 store.handleError(err);
