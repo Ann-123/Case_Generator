@@ -211,6 +211,49 @@ class TestGenerateChtz:
         assert tree[0]["children"][0]["code"] == "ФТ_1.1"
 
     @patch("backend.projects.client.chat.completions.create", new_callable=AsyncMock)
+    def test_generate_chtz_array_response(self, mock_create, client):
+        response = client.post("/projects", json={"name": "Проект с массивом ЧТЗ"})
+        project_id = response.json()["id"]
+
+        client.post(
+            f"/projects/{project_id}/upload-tz",
+            data={"tz_text": "1. Авторизация. Пользователь может войти по логину и паролю."},
+        )
+
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock()]
+        mock_response.choices[0].message.content = json.dumps(
+            VALID_CHTZ_RESPONSE["sections"], ensure_ascii=False
+        )
+        mock_create.return_value = mock_response
+
+        response = client.post(f"/projects/{project_id}/generate-chtz")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["project_id"] == project_id
+        assert data["requirements_count"] == 3
+        assert len(data["sections"]) == 2
+
+    @patch("backend.projects.client.chat.completions.create", new_callable=AsyncMock)
+    def test_generate_chtz_empty_sections(self, mock_create, client):
+        response = client.post("/projects", json={"name": "Проект с пустым ЧТЗ"})
+        project_id = response.json()["id"]
+
+        client.post(
+            f"/projects/{project_id}/upload-tz",
+            data={"tz_text": "Некоторое техническое задание."},
+        )
+
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock()]
+        mock_response.choices[0].message.content = json.dumps({"sections": []}, ensure_ascii=False)
+        mock_create.return_value = mock_response
+
+        response = client.post(f"/projects/{project_id}/generate-chtz")
+        assert response.status_code == 500
+        assert "секций" in response.json()["error"]
+
+    @patch("backend.projects.client.chat.completions.create", new_callable=AsyncMock)
     def test_generate_chtz_invalid_json(self, mock_create, client):
         response = client.post("/projects", json={"name": "Проект с плохим ЧТЗ"})
         project_id = response.json()["id"]

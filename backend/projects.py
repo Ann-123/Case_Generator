@@ -115,23 +115,27 @@ async def describe_image(image_bytes: bytes) -> str:
     return response.choices[0].message.content.strip()
 
 
-def extract_chtz_json(raw_content: str) -> dict:
+def extract_chtz_json(raw_content: str) -> list[dict]:
     """Извлекает и валидирует JSON-структуру ЧТЗ из ответа модели."""
     try:
         parsed = json.loads(raw_content)
     except json.JSONDecodeError as e:
         raise ValueError(f"Ответ модели не является валидным JSON: {e}") from e
 
-    if not isinstance(parsed, dict):
-        raise ValueError("Ответ модели должен быть JSON-объектом")
+    if isinstance(parsed, list):
+        sections = parsed
+    elif isinstance(parsed, dict):
+        sections = parsed.get("sections", [])
+    else:
+        raise ValueError("Ответ модели должен быть JSON-объектом или массивом")
 
-    if "sections" not in parsed:
-        raise ValueError("В ответе модели отсутствует ключ 'sections'")
-
-    if not isinstance(parsed["sections"], list):
+    if not isinstance(sections, list):
         raise ValueError("Значение 'sections' должно быть массивом")
 
-    return parsed
+    if not sections:
+        raise ValueError("Ответ модели не содержит секций")
+
+    return sections
 
 
 def save_chtz_to_db(project_id: int, sections: list[dict]) -> None:
@@ -281,13 +285,13 @@ async def generate_chtz(
         raw_content = response.choices[0].message.content.strip()
         logger.info("Сырой ответ ЧТЗ: %s", raw_content[:1000])
 
-        parsed = extract_chtz_json(raw_content)
-        save_chtz_to_db(project_id, parsed["sections"])
+        sections = extract_chtz_json(raw_content)
+        save_chtz_to_db(project_id, sections)
 
         return {
             "project_id": project_id,
-            "sections": parsed["sections"],
-            "requirements_count": sum(len(s.get("requirements", [])) for s in parsed["sections"]),
+            "sections": sections,
+            "requirements_count": sum(len(s.get("requirements", [])) for s in sections),
         }
     except HTTPException:
         raise
