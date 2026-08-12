@@ -733,14 +733,302 @@
             }, 3000);
         },
       });
+
+      Alpine.data('requirementsTree', () => ({
+        expandedSections: {},
+        expandedRequirements: {},
+
+        toggleSection(section) {
+          this.expandedSections[section.id] = !this.expandedSections[section.id];
+        },
+        isExpandedSection(section) {
+          return !!this.expandedSections[section.id];
+        },
+        toggleRequirement(req) {
+          if (req.children?.length) {
+            this.expandedRequirements[req.id] = !this.expandedRequirements[req.id];
+          }
+        },
+        isExpandedRequirement(req) {
+          return !!this.expandedRequirements[req.id];
+        },
+        selectSection(section) {
+          this.$store.docflow.selectSection(section);
+        },
+        selectRequirement(req) {
+          this.$store.docflow.selectRequirement(req);
+        },
+        isSectionActive(section) {
+          const store = this.$store.docflow;
+          return store.selectedSection && store.selectedSection.id === section.id;
+        },
+        isRequirementActive(req) {
+          const store = this.$store.docflow;
+          return store.selectedRequirement && store.selectedRequirement.id === req.id;
+        },
+        refreshTree() {
+          this.$store.docflow.loadRequirementsTree();
+        },
+      }));
+
+      Alpine.data('requirementView', () => ({
+        coverage: null,
+        checklist: null,
+        testcases: {},
+        loadingCoverage: false,
+        editingChecklist: false,
+        positiveItems: [],
+        negativeItems: [],
+        checklistEditCounter: 1,
+        expandedItems: {},
+        editingTestcase: null,
+
+        init() {
+          this.$watch('$store.docflow.selectedRequirement', (req) => {
+            if (req) {
+              this.loadCoverage();
+            } else {
+              this.resetCoverage();
+            }
+          });
+        },
+
+        resetCoverage() {
+          this.coverage = null;
+          this.checklist = null;
+          this.testcases = {};
+          this.editingChecklist = false;
+          this.editingTestcase = null;
+          this.expandedItems = {};
+        },
+
+        async loadCoverage() {
+          const req = this.$store.docflow.selectedRequirement;
+          if (!req) return;
+          this.loadingCoverage = true;
+          this.editingChecklist = false;
+          this.editingTestcase = null;
+          try {
+            const data = await window.DocFlowAPI.fetchRequirementCoverage(req.id);
+            this.coverage = data;
+            this.checklist = data.checklists && data.checklists.length > 0 ? data.checklists[0] : null;
+            this.buildTestcaseMap(data.testcases || []);
+          } catch (err) {
+            this.$store.docflow.handleError(err);
+          } finally {
+            this.loadingCoverage = false;
+          }
+        },
+
+        buildTestcaseMap(testcases) {
+          const map = {};
+          for (const tc of testcases) {
+            if (tc.checklist_item_id) {
+              map[tc.checklist_item_id] = tc;
+            }
+          }
+          this.testcases = map;
+        },
+
+        testcaseFor(itemId) {
+          return this.testcases[itemId] || null;
+        },
+
+        toggleItem(itemId) {
+          this.expandedItems[itemId] = !this.expandedItems[itemId];
+        },
+
+        isExpanded(itemId) {
+          return !!this.expandedItems[itemId];
+        },
+
+        categoryIcon(category) {
+          return category === 'positive' ? '✓' : '✗';
+        },
+
+        categoryColor(category) {
+          return category === 'positive' ? 'bg-sage-400' : 'bg-bloom-400';
+        },
+
+        async generateChecklist() {
+          const req = this.$store.docflow.selectedRequirement;
+          if (!req) return;
+          this.$store.docflow.loading = true;
+          try {
+            await window.DocFlowAPI.generateChecklist(req.id);
+            this.$store.docflow.showToast('Чек-лист сгенерирован', 'success');
+            await this.loadCoverage();
+          } catch (err) {
+            this.$store.docflow.handleError(err);
+          } finally {
+            this.$store.docflow.loading = false;
+          }
+        },
+
+        async generateTestcase(itemId) {
+          if (!this.checklist) return;
+          this.$store.docflow.loading = true;
+          try {
+            await window.DocFlowAPI.generateTestcase(this.checklist.id, itemId);
+            this.$store.docflow.showToast('Тест-кейс сгенерирован', 'success');
+            await this.loadCoverage();
+            this.expandedItems[itemId] = true;
+          } catch (err) {
+            this.$store.docflow.handleError(err);
+          } finally {
+            this.$store.docflow.loading = false;
+          }
+        },
+
+        startEditingChecklist() {
+          if (!this.checklist) return;
+          const items = this.checklist.items || {};
+          this.positiveItems = this.ensureIds(items.positive || [], 'positive');
+          this.negativeItems = this.ensureIds(items.negative || [], 'negative');
+          this.editingChecklist = true;
+        },
+
+        ensureIds(items, category) {
+          return items.map((item, idx) => {
+            if (item.id) return { ...item };
+            const prefix = category === 'positive' ? 'p' : 'n';
+            return { ...item, id: `${prefix}-existing-${idx}-${Date.now()}` };
+          });
+        },
+
+        addItem(category) {
+          const prefix = category === 'positive' ? 'p' : 'n';
+          const newItem = {
+            id: `${prefix}-new-${this.checklistEditCounter++}-${Date.now()}`,
+            text: '',
+          };
+          if (category === 'positive') {
+            this.positiveItems.push(newItem);
+          } else {
+            this.negativeItems.push(newItem);
+          }
+        },
+
+        removeItem(category, index) {
+          if (category === 'positive') {
+            this.positiveItems.splice(index, 1);
+          } else {
+            this.negativeItems.splice(index, 1);
+          }
+        },
+
+        cancelEditChecklist() {
+          this.editingChecklist = false;
+        },
+
+        async saveChecklist() {
+          if (!this.checklist) return;
+          const itemsJson = {
+            positive: this.positiveItems.map(item => ({ id: item.id, text: item.text })),
+            negative: this.negativeItems.map(item => ({ id: item.id, text: item.text })),
+          };
+          this.$store.docflow.loading = true;
+          try {
+            await window.DocFlowAPI.updateChecklist(this.checklist.id, itemsJson);
+            this.$store.docflow.showToast('Чек-лист сохранён', 'success');
+            this.editingChecklist = false;
+            await this.loadCoverage();
+          } catch (err) {
+            this.$store.docflow.handleError(err);
+          } finally {
+            this.$store.docflow.loading = false;
+          }
+        },
+
+        async deleteChecklist() {
+          if (!this.checklist) return;
+          if (!confirm('Удалить чек-лист и все связанные тест-кейсы?')) return;
+          this.$store.docflow.loading = true;
+          try {
+            await window.DocFlowAPI.deleteChecklist(this.checklist.id);
+            this.$store.docflow.showToast('Чек-лист удалён', 'success');
+            await this.loadCoverage();
+          } catch (err) {
+            this.$store.docflow.handleError(err);
+          } finally {
+            this.$store.docflow.loading = false;
+          }
+        },
+
+        editTestcase(tc) {
+          this.editingTestcase = {
+            id: tc.id,
+            title: tc.title || '',
+            steps: tc.steps || '',
+            expected_result: tc.expected_result || '',
+            include_in_pmi: !!tc.include_in_pmi,
+          };
+        },
+
+        cancelEditTestcase() {
+          this.editingTestcase = null;
+        },
+
+        async saveTestcase() {
+          if (!this.editingTestcase) return;
+          this.$store.docflow.loading = true;
+          try {
+            await window.DocFlowAPI.updateTestcase(this.editingTestcase.id, {
+              title: this.editingTestcase.title,
+              steps: this.editingTestcase.steps,
+              expected_result: this.editingTestcase.expected_result,
+              include_in_pmi: this.editingTestcase.include_in_pmi,
+            });
+            this.$store.docflow.showToast('Тест-кейс сохранён', 'success');
+            this.editingTestcase = null;
+            await this.loadCoverage();
+          } catch (err) {
+            this.$store.docflow.handleError(err);
+          } finally {
+            this.$store.docflow.loading = false;
+          }
+        },
+
+        async togglePmi(tc) {
+          this.$store.docflow.loading = true;
+          try {
+            await window.DocFlowAPI.updateTestcase(tc.id, {
+              include_in_pmi: !tc.include_in_pmi,
+            });
+            this.$store.docflow.showToast('Флаг ПМИ обновлён', 'success');
+            await this.loadCoverage();
+          } catch (err) {
+            this.$store.docflow.handleError(err);
+          } finally {
+            this.$store.docflow.loading = false;
+          }
+        },
+
+        async deleteTestcase(tc) {
+          if (!confirm('Удалить тест-кейс?')) return;
+          this.$store.docflow.loading = true;
+          try {
+            await window.DocFlowAPI.deleteTestcase(tc.id);
+            this.$store.docflow.showToast('Тест-кейс удалён', 'success');
+            await this.loadCoverage();
+          } catch (err) {
+            this.$store.docflow.handleError(err);
+          } finally {
+            this.$store.docflow.loading = false;
+          }
+        },
+
+        splitSteps(steps) {
+          if (!steps) return [];
+          return steps.split('\n').filter(line => line.trim() !== '');
+        },
+      }));
     });
   </script>
 
   <!-- Приложение -->
   <script defer src="/static/js/app.js"></script>
   <script defer src="/static/js/projects.js"></script>
-  <script defer src="/static/js/requirements.js"></script>
-  <script defer src="/static/js/checklists.js"></script>
 </head>
 <body class="bg-beige-50 text-gray-blue-800 antialiased min-h-screen" x-data="{}" x-init="$store.docflow.init()">
 
@@ -988,27 +1276,56 @@
             </div>
 
             <div class="flex-1 overflow-auto space-y-1 pr-1">
-              <template x-for="node in visibleNodes()" :key="node.id">
-                <button
-                  @click="handleNodeClick(node)"
-                  class="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left text-sm transition-colors"
-                  :class="[
-                    isNodeActive(node) ? 'bg-lavender-100 text-lavender-900' : 'hover:bg-lavender-50 text-gray-blue-700',
-                    node.isSection ? 'font-bold' : 'font-medium'
-                  ]"
-                  :style="'padding-left: ' + (0.75 + node.depth * 1.25) + 'rem'"
-                >
-                  <span
-                    x-show="node.children?.length"
-                    x-text="isExpanded(node) ? '▼' : '▶'"
-                    class="text-xs text-gray-blue-400 w-3"
-                  ></span>
-                  <span x-show="!node.children?.length" class="w-3"></span>
-                  <span x-show="node.isSection" class="text-gray-blue-400">📁</span>
-                  <span x-show="node.code" class="font-medium" x-text="node.code"></span>
-                  <span x-show="node.code">:</span>
-                  <span x-text="node.title" class="truncate"></span>
-                </button>
+              <template x-for="section in $store.docflow.requirementsTree" :key="section.id">
+                <div>
+                  <!-- Раздел -->
+                  <button
+                    @click="toggleSection(section); selectSection(section)"
+                    class="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left text-sm font-bold transition-colors"
+                    :class="isSectionActive(section) ? 'bg-lavender-100 text-lavender-900' : 'hover:bg-lavender-50 text-gray-blue-700'"
+                  >
+                    <span x-text="isExpandedSection(section) ? '▼' : '▶'" class="text-xs text-gray-blue-400 w-3"></span>
+                    <span class="text-gray-blue-400">📁</span>
+                    <span x-show="section.code" class="font-medium" x-text="section.code"></span>
+                    <span x-show="section.code">:</span>
+                    <span x-text="section.title" class="truncate"></span>
+                  </button>
+
+                  <!-- Требования раздела -->
+                  <div x-show="isExpandedSection(section)" x-cloak class="pl-4 space-y-1 mt-1">
+                    <template x-for="req in section.children" :key="req.id">
+                      <div>
+                        <button
+                          @click="toggleRequirement(req); selectRequirement(req)"
+                          class="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left text-sm font-medium transition-colors"
+                          :class="isRequirementActive(req) ? 'bg-lavender-100 text-lavender-900' : 'hover:bg-lavender-50 text-gray-blue-700'"
+                        >
+                          <span x-show="req.children?.length" x-text="isExpandedRequirement(req) ? '▼' : '▶'" class="text-xs text-gray-blue-400 w-3"></span>
+                          <span x-show="!req.children?.length" class="w-3"></span>
+                          <span x-show="req.code" class="font-medium" x-text="req.code"></span>
+                          <span x-show="req.code">:</span>
+                          <span x-text="req.title" class="truncate"></span>
+                        </button>
+
+                        <!-- Дочерние требования (один уровень вложенности) -->
+                        <div x-show="isExpandedRequirement(req) && req.children?.length" x-cloak class="pl-4 space-y-1 mt-1">
+                          <template x-for="child in req.children" :key="child.id">
+                            <button
+                              @click="selectRequirement(child)"
+                              class="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left text-sm font-medium transition-colors"
+                              :class="isRequirementActive(child) ? 'bg-lavender-100 text-lavender-900' : 'hover:bg-lavender-50 text-gray-blue-700'"
+                            >
+                              <span class="w-3"></span>
+                              <span x-show="child.code" class="font-medium" x-text="child.code"></span>
+                              <span x-show="child.code">:</span>
+                              <span x-text="child.title" class="truncate"></span>
+                            </button>
+                          </template>
+                        </div>
+                      </div>
+                    </template>
+                  </div>
+                </div>
               </template>
 
               <!-- Пустое дерево -->
@@ -1093,7 +1410,7 @@
                       @change="$store.docflow.tzFile = $event.target.files[0]"
                       class="block w-full text-sm text-gray-blue-700 file:mr-4 file:py-2.5 file:px-4 file:rounded-2xl file:border-0 file:bg-bloom-100 file:text-bloom-700 hover:file:bg-bloom-200"
                     >
-                    <p x-show="$store.docflow.tzFile" class="mt-2 text-sm text-gray-blue-600" x-text="'Выбран: ' + $store.docflow.tzFile.name"></p>
+                    <p x-show="$store.docflow.tzFile?.name" class="mt-2 text-sm text-gray-blue-600" x-text="'Выбран: ' + $store.docflow.tzFile.name"></p>
                   </div>
 
                   <div x-show="$store.docflow.error" class="text-bloom-600 text-sm mb-4" x-text="$store.docflow.error"></div>
@@ -1415,7 +1732,7 @@
                         @change="$store.docflow.newTemplateFile = $event.target.files[0]"
                         class="block w-full text-sm text-gray-blue-700 file:mr-4 file:py-2.5 file:px-4 file:rounded-2xl file:border-0 file:bg-bloom-100 file:text-bloom-700 hover:file:bg-bloom-200"
                       >
-                      <p x-show="$store.docflow.newTemplateFile" class="mt-2 text-sm text-gray-blue-600" x-text="'Выбран: ' + $store.docflow.newTemplateFile.name"></p>
+                      <p x-show="$store.docflow.newTemplateFile?.name" class="mt-2 text-sm text-gray-blue-600" x-text="'Выбран: ' + $store.docflow.newTemplateFile.name"></p>
                     </div>
                   </div>
                   <div x-show="$store.docflow.error" class="text-bloom-600 text-sm mb-3" x-text="$store.docflow.error"></div>
