@@ -988,30 +988,23 @@
             </div>
 
             <div class="flex-1 overflow-auto space-y-1 pr-1">
-              <template x-for="section in $store.docflow.requirementsTree" :key="section.id">
-                <div>
-                  <button
-                    @click="toggleSection(section); selectSection(section)"
-                    class="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left text-sm font-medium transition-colors"
-                    :class="isSectionActive(section) ? 'bg-lavender-100 text-lavender-900' : 'hover:bg-lavender-50 text-gray-blue-700'"
-                  >
-                    <span x-text="isExpanded(section) ? '▼' : '▶'" class="text-xs text-gray-blue-400"></span>
-                    <span x-text="section.title" class="truncate"></span>
-                  </button>
-
-                  <div x-show="isExpanded(section)" x-cloak class="pl-6 space-y-1 mt-1">
-                    <template x-for="req in section.children" :key="req.id">
-                      <button
-                        @click="selectRequirement(req)"
-                        class="w-full text-left px-3 py-2 rounded-xl text-sm transition-colors"
-                        :class="isRequirementActive(req) ? 'bg-lavender-100 text-lavender-900' : 'hover:bg-lavender-50 text-gray-blue-600'"
-                      >
-                        <span class="font-medium" x-text="req.code || 'ФТ'"></span>:
-                        <span x-text="req.title" class="truncate"></span>
-                      </button>
-                    </template>
-                  </div>
-                </div>
+              <template x-for="node in visibleNodes()" :key="node.id">
+                <button
+                  @click="handleNodeClick(node)"
+                  class="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left text-sm font-medium transition-colors"
+                  :class="isNodeActive(node) ? 'bg-lavender-100 text-lavender-900' : 'hover:bg-lavender-50 text-gray-blue-700'"
+                  :style="'padding-left: ' + (0.75 + node.depth * 1.25) + 'rem'"
+                >
+                  <span
+                    x-show="node.children?.length"
+                    x-text="isExpanded(node) ? '▼' : '▶'"
+                    class="text-xs text-gray-blue-400 w-3"
+                  ></span>
+                  <span x-show="!node.children?.length" class="w-3"></span>
+                  <span x-show="node.code" class="font-medium" x-text="node.code"></span>
+                  <span x-show="node.code">:</span>
+                  <span x-text="node.title" class="truncate"></span>
+                </button>
               </template>
 
               <!-- Пустое дерево -->

@@ -138,12 +138,53 @@ def extract_chtz_json(raw_content: str) -> list[dict]:
     return sections
 
 
+def _get_parent_code(code: str) -> Optional[str]:
+    """Возвращает код родительского требования, отбросив последнюю часть после точки.
+
+    Например, для 'ФТ_1.2.1' вернёт 'ФТ_1.2', для 'ФТ_1' вернёт None.
+    """
+    if not code or "." not in code:
+        return None
+    return code.rsplit(".", 1)[0]
+
+
+def _ensure_parent_requirement(
+    project_id: int,
+    parent_code: str,
+    code_to_id: dict[str, int],
+    section_id: int,
+    section_path: str,
+) -> int:
+    """Возвращает id родительского требования, создавая заглушку при необходимости."""
+    if parent_code in code_to_id:
+        return code_to_id[parent_code]
+
+    grandparent_code = _get_parent_code(parent_code)
+    if grandparent_code:
+        grandparent_id = _ensure_parent_requirement(
+            project_id, grandparent_code, code_to_id, section_id, section_path
+        )
+    else:
+        grandparent_id = section_id
+
+    stub_id = create_requirement(
+        project_id=project_id,
+        title=parent_code,
+        description="",
+        code=parent_code,
+        parent_id=grandparent_id,
+        section_path=f"{section_path} > {parent_code}",
+        sort_order=0,
+    )
+    code_to_id[parent_code] = stub_id
+    return stub_id
+
+
 def save_chtz_to_db(project_id: int, sections: list[dict]) -> None:
-    """Сохраняет разделы и требования в таблицу requirements."""
+    """Сохраняет разделы и требования в таблицу requirements, выстраивая иерархию по кодам ФТ."""
     delete_requirements_by_project(project_id)
 
-    section_order = 0
-    for section in sections:
+    for section_order, section in enumerate(sections):
         title = section.get("title", "Раздел")
         section_path = title
         section_id = create_requirement(
@@ -154,20 +195,37 @@ def save_chtz_to_db(project_id: int, sections: list[dict]) -> None:
             section_path=section_path,
             sort_order=section_order,
         )
-        section_order += 1
 
         requirements = section.get("requirements", [])
-        for idx, req in enumerate(requirements):
-            code = req.get("code") or f"ФТ_{section_order}.{idx + 1}"
-            create_requirement(
+        # Сортируем по глубине кода, чтобы родители обрабатывались раньше детей,
+        # сохраняя исходный порядок внутри одного уровня.
+        indexed_reqs = list(enumerate(requirements))
+        indexed_reqs.sort(key=lambda item: item[1].get("code", "").count("."))
+
+        code_to_id: dict[str, int] = {}
+        for original_idx, req in indexed_reqs:
+            code = req.get("code") or f"ФТ_{section_order + 1}.{original_idx + 1}"
+            parent_code = _get_parent_code(code)
+
+            if parent_code and parent_code in code_to_id:
+                parent_id = code_to_id[parent_code]
+            elif parent_code:
+                parent_id = _ensure_parent_requirement(
+                    project_id, parent_code, code_to_id, section_id, section_path
+                )
+            else:
+                parent_id = section_id
+
+            req_id = create_requirement(
                 project_id=project_id,
                 title=req.get("title", "Требование"),
                 description=req.get("description", ""),
                 code=code,
-                parent_id=section_id,
+                parent_id=parent_id,
                 section_path=f"{section_path} > {code}",
-                sort_order=idx,
+                sort_order=original_idx,
             )
+            code_to_id[code] = req_id
 
 
 @router.post("", response_model=ProjectResponse)

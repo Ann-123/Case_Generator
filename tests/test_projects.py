@@ -13,14 +13,22 @@ VALID_CHTZ_RESPONSE = {
             "title": "1. Авторизация",
             "requirements": [
                 {
+                    "code": "ФТ_1",
+                    "title": "Реализовать авторизацию",
+                    "description": "Пользователь должен иметь возможность авторизоваться в системе.",
+                    "section": "1",
+                },
+                {
                     "code": "ФТ_1.1",
                     "title": "Вход по логину и паролю",
                     "description": "Пользователь может войти, указав логин и пароль.",
+                    "section": "1",
                 },
                 {
                     "code": "ФТ_1.2",
                     "title": "Вход по SMS",
                     "description": "Пользователь может войти по одноразовому коду из SMS.",
+                    "section": "1",
                 },
             ],
         },
@@ -28,9 +36,16 @@ VALID_CHTZ_RESPONSE = {
             "title": "2. Переводы",
             "requirements": [
                 {
+                    "code": "ФТ_2",
+                    "title": "Реализовать переводы",
+                    "description": "Пользователь должен иметь возможность выполнять переводы.",
+                    "section": "2",
+                },
+                {
                     "code": "ФТ_2.1",
                     "title": "Перевод между своими счетами",
                     "description": "Пользователь может перевести деньги между своими счетами.",
+                    "section": "2",
                 }
             ],
         },
@@ -196,7 +211,7 @@ class TestGenerateChtz:
         assert response.status_code == 200
         data = response.json()
         assert data["project_id"] == project_id
-        assert data["requirements_count"] == 3
+        assert data["requirements_count"] == 5
 
         # Проверим дерево
         tree_response = client.get(f"/projects/{project_id}/requirements-tree")
@@ -206,9 +221,14 @@ class TestGenerateChtz:
         tree = tree_data["tree"]
         assert len(tree) == 2
         assert tree[0]["title"] == "1. Авторизация"
-        assert len(tree[0]["children"]) == 2
+        assert len(tree[0]["children"]) == 1
+        assert tree[0]["children"][0]["code"] == "ФТ_1"
+        assert len(tree[0]["children"][0]["children"]) == 2
+        assert tree[0]["children"][0]["children"][0]["code"] == "ФТ_1.1"
         assert tree[1]["title"] == "2. Переводы"
-        assert tree[0]["children"][0]["code"] == "ФТ_1.1"
+        assert tree[1]["children"][0]["code"] == "ФТ_2"
+        assert len(tree[1]["children"][0]["children"]) == 1
+        assert tree[1]["children"][0]["children"][0]["code"] == "ФТ_2.1"
 
     @patch("backend.projects.client.chat.completions.create", new_callable=AsyncMock)
     def test_generate_chtz_array_response(self, mock_create, client):
@@ -231,8 +251,58 @@ class TestGenerateChtz:
         assert response.status_code == 200
         data = response.json()
         assert data["project_id"] == project_id
-        assert data["requirements_count"] == 3
+        assert data["requirements_count"] == 5
         assert len(data["sections"]) == 2
+
+    @patch("backend.projects.client.chat.completions.create", new_callable=AsyncMock)
+    def test_generate_chtz_missing_parent_stub(self, mock_create, client):
+        response = client.post("/projects", json={"name": "Проект с пропущенным родителем"})
+        project_id = response.json()["id"]
+
+        client.post(
+            f"/projects/{project_id}/upload-tz",
+            data={"tz_text": "Некоторое техническое задание."},
+        )
+
+        chtz = {
+            "sections": [
+                {
+                    "title": "1. Раздел",
+                    "requirements": [
+                        {
+                            "code": "ФТ_1.1.1",
+                            "title": "Дочернее требование",
+                            "description": "Описание дочернего требования.",
+                            "section": "1",
+                        }
+                    ],
+                }
+            ]
+        }
+
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock()]
+        mock_response.choices[0].message.content = json.dumps(chtz, ensure_ascii=False)
+        mock_create.return_value = mock_response
+
+        response = client.post(f"/projects/{project_id}/generate-chtz")
+        assert response.status_code == 200
+
+        tree_response = client.get(f"/projects/{project_id}/requirements-tree")
+        assert tree_response.status_code == 200
+        tree = tree_response.json()["tree"]
+        assert len(tree) == 1
+        section = tree[0]
+        assert len(section["children"]) == 1
+        # Должна быть создана заглушка ФТ_1
+        assert section["children"][0]["code"] == "ФТ_1"
+        assert section["children"][0]["title"] == "ФТ_1"
+        # Под ней заглушка ФТ_1.1
+        assert len(section["children"][0]["children"]) == 1
+        assert section["children"][0]["children"][0]["code"] == "ФТ_1.1"
+        # Под ней исходное требование ФТ_1.1.1
+        assert len(section["children"][0]["children"][0]["children"]) == 1
+        assert section["children"][0]["children"][0]["children"][0]["code"] == "ФТ_1.1.1"
 
     @patch("backend.projects.client.chat.completions.create", new_callable=AsyncMock)
     def test_generate_chtz_empty_sections(self, mock_create, client):

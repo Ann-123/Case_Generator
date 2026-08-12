@@ -3,22 +3,40 @@
  */
 document.addEventListener('alpine:init', () => {
     Alpine.data('requirementsTree', () => ({
-        // Объект id → true/false для развёрнутых разделов
+        // Объект id → true/false для развёрнутых узлов
         // (используем объект вместо Set для корректной реактивности Alpine.js)
-        expandedSections: {},
+        expandedNodes: {},
 
         /**
-         * Развернуть/свернуть раздел.
+         * Развернуть/свернуть узел дерева.
          */
-        toggleSection(section) {
-            this.expandedSections[section.id] = !this.expandedSections[section.id];
+        toggleNode(node) {
+            if (!node.children?.length) return;
+            this.expandedNodes[node.id] = !this.expandedNodes[node.id];
         },
 
         /**
-         * Раздел раскрыт?
+         * Узел раскрыт?
          */
-        isExpanded(section) {
-            return !!this.expandedSections[section.id];
+        isExpanded(node) {
+            return !!this.expandedNodes[node.id];
+        },
+
+        /**
+         * Построить плоский список видимых узлов с учётом глубины.
+         */
+        visibleNodes() {
+            const nodes = [];
+            const walk = (tree, depth) => {
+                for (const node of tree) {
+                    nodes.push({ ...node, depth });
+                    if (this.isExpanded(node) && node.children?.length) {
+                        walk(node.children, depth + 1);
+                    }
+                }
+            };
+            walk(this.$store.docflow.requirementsTree, 0);
+            return nodes;
         },
 
         /**
@@ -52,19 +70,28 @@ document.addEventListener('alpine:init', () => {
         },
 
         /**
-         * Подсветка активного раздела.
+         * Подсветка активного узла.
          */
-        isSectionActive(section) {
+        isNodeActive(node) {
             const store = this.$store.docflow;
-            return store.selectedSection && store.selectedSection.id === section.id;
+            if (node.code) {
+                return store.selectedRequirement && store.selectedRequirement.id === node.id;
+            }
+            return store.selectedSection && store.selectedSection.id === node.id;
         },
 
         /**
-         * Подсветка активного требования.
+         * Обработчик клика по узлу дерева.
          */
-        isRequirementActive(req) {
-            const store = this.$store.docflow;
-            return store.selectedRequirement && store.selectedRequirement.id === req.id;
+        handleNodeClick(node) {
+            if (node.children?.length) {
+                this.toggleNode(node);
+            }
+            if (node.code) {
+                this.selectRequirement(node);
+            } else {
+                this.selectSection(node);
+            }
         },
     }));
 });
