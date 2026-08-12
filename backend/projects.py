@@ -1,4 +1,5 @@
 import os
+import re
 import base64
 import json
 import tempfile
@@ -148,6 +149,17 @@ def _get_parent_code(code: str) -> Optional[str]:
     return code.rsplit(".", 1)[0]
 
 
+def _extract_section_code(title: str, fallback: str) -> str:
+    """Извлекает номер раздела из начала заголовка (например, '1.1.1').
+
+    Если номер не найден, возвращает fallback.
+    """
+    match = re.match(r"(\d+(?:\.\d+)*)\.", title)
+    if match:
+        return match.group(1)
+    return fallback
+
+
 def _ensure_parent_requirement(
     project_id: int,
     parent_code: str,
@@ -186,11 +198,13 @@ def save_chtz_to_db(project_id: int, sections: list[dict]) -> None:
 
     for section_order, section in enumerate(sections):
         title = section.get("title", "Раздел")
+        section_code = _extract_section_code(title, f"S_{section_order + 1}")
         section_path = title
         section_id = create_requirement(
             project_id=project_id,
             title=title,
             description="",
+            code=section_code,
             parent_id=None,
             section_path=section_path,
             sort_order=section_order,

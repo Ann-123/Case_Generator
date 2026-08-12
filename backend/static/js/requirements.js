@@ -24,12 +24,14 @@ document.addEventListener('alpine:init', () => {
 
         /**
          * Построить плоский список видимых узлов с учётом глубины.
+         * Разделы помечаются флагом isSection.
          */
         visibleNodes() {
             const nodes = [];
             const walk = (tree, depth) => {
                 for (const node of tree) {
-                    nodes.push({ ...node, depth });
+                    // Корневые узлы дерева — это разделы.
+                    nodes.push({ ...node, depth, isSection: depth === 0 });
                     if (this.isExpanded(node) && node.children?.length) {
                         walk(node.children, depth + 1);
                     }

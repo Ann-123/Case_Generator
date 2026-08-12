@@ -991,8 +991,11 @@
               <template x-for="node in visibleNodes()" :key="node.id">
                 <button
                   @click="handleNodeClick(node)"
-                  class="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left text-sm font-medium transition-colors"
-                  :class="isNodeActive(node) ? 'bg-lavender-100 text-lavender-900' : 'hover:bg-lavender-50 text-gray-blue-700'"
+                  class="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left text-sm transition-colors"
+                  :class="[
+                    isNodeActive(node) ? 'bg-lavender-100 text-lavender-900' : 'hover:bg-lavender-50 text-gray-blue-700',
+                    node.isSection ? 'font-bold' : 'font-medium'
+                  ]"
                   :style="'padding-left: ' + (0.75 + node.depth * 1.25) + 'rem'"
                 >
                   <span
@@ -1001,6 +1004,7 @@
                     class="text-xs text-gray-blue-400 w-3"
                   ></span>
                   <span x-show="!node.children?.length" class="w-3"></span>
+                  <span x-show="node.isSection" class="text-gray-blue-400">📁</span>
                   <span x-show="node.code" class="font-medium" x-text="node.code"></span>
                   <span x-show="node.code">:</span>
                   <span x-text="node.title" class="truncate"></span>

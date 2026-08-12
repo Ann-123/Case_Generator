@@ -221,6 +221,7 @@ class TestGenerateChtz:
         tree = tree_data["tree"]
         assert len(tree) == 2
         assert tree[0]["title"] == "1. Авторизация"
+        assert tree[0]["code"] == "1"
         assert len(tree[0]["children"]) == 1
         assert tree[0]["children"][0]["code"] == "ФТ_1"
         assert len(tree[0]["children"][0]["children"]) == 2
